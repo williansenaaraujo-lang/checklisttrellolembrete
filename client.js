@@ -1,14 +1,17 @@
-/* global TrelloPowerUp */
+console.log("🚀 O client.js do Lembrete carregou com sucesso!");
 
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
+    console.log("Trello pediu os botões e nós enviamos!");
+    
     return [{
-      icon: 'https://cdn.icon-icons.com/icons2/1368/PNG/512/-clock_90432.png', // Ícone de relógio
+      // Usando um ícone nativo e seguro do próprio Trello (um checklistzinho)
+      icon: 'https://a.trellocdn.com/prgb/dist/images/tips/info-image-03@1x.png', 
       text: 'Lembrete de Checklist',
       callback: function(t) {
         return t.popup({
           title: 'Agendar Lembrete',
-          url: './popup.html', // Vamos criar esta telinha no próximo passo!
+          url: './popup.html',
           height: 250
         });
       }
