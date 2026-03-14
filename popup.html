@@ -4,57 +4,69 @@
     <meta charset="utf-8">
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <style>
+      body { padding: 10px; }
+      .item-container { margin-bottom: 12px; border-bottom: 1px solid #dfe1e6; padding-bottom: 8px; }
+    </style>
   </head>
-  <body style="padding: 10px;">
+  <body>
     <h4>Definir Lembretes</h4>
     <div id="lista-checklists">Carregando checklists...</div>
 
     <script>
       var t = TrelloPowerUp.iframe();
 
-      // Pede ao Trello os dados dos checklists deste cartão
-      t.card('checklists').then(function(card) {
-        var lista = document.getElementById('lista-checklists');
-        lista.innerHTML = ''; // Remove o texto "Carregando"
+      // t.render garante que a tela atualiza sempre que abrimos
+      t.render(function() {
+        t.card('checklists').then(function(card) {
+          var lista = document.getElementById('lista-checklists');
+          lista.innerHTML = ''; 
 
-        if (!card.checklists || card.checklists.length === 0) {
-          lista.innerHTML = '<p>Nenhum checklist encontrado neste cartão. Crie um primeiro!</p>';
-          return;
-        }
+          if (!card.checklists || card.checklists.length === 0) {
+            lista.innerHTML = '<p>Nenhum checklist encontrado neste cartão.</p>';
+            return;
+          }
 
-        // Para cada checklist, cria o título e os itens com calendário
-        card.checklists.forEach(function(checklist) {
-          var titulo = document.createElement('h5');
-          titulo.innerText = checklist.name;
-          lista.appendChild(titulo);
+          card.checklists.forEach(function(checklist) {
+            var titulo = document.createElement('h5');
+            titulo.innerText = checklist.name;
+            titulo.style.marginTop = '15px';
+            lista.appendChild(titulo);
 
-          checklist.checkItems.forEach(function(item) {
-            var div = document.createElement('div');
-            div.style.marginBottom = '10px';
-            div.style.borderBottom = '1px solid #ccc';
-            div.style.paddingBottom = '5px';
+            // A MÁGICA DE PROTEÇÃO AQUI: Se não tiver itens, cria uma lista vazia
+            var items = checklist.checkItems || []; 
             
-            // Desenha o nome do item, o calendário e o botão salvar
-            div.innerHTML = `
-              <label><strong>${item.name}</strong></label><br>
-              <input type="date" id="data-${item.id}" style="margin-right: 5px;">
-              <button class="mod-primary" onclick="salvarData('${item.id}')">Salvar Data</button>
-            `;
-            lista.appendChild(div);
+            if (items.length === 0) {
+              var vazio = document.createElement('div');
+              vazio.innerText = 'Sem itens neste checklist.';
+              vazio.style.fontSize = '12px';
+              vazio.style.color = '#7A869A';
+              lista.appendChild(vazio);
+            } else {
+              items.forEach(function(item) {
+                var div = document.createElement('div');
+                div.className = 'item-container';
+                
+                div.innerHTML = `
+                  <label style="display:block; margin-bottom:4px;"><strong>${item.name}</strong></label>
+                  <input type="date" id="data-${item.id}" style="margin-right: 5px; padding: 4px;">
+                  <button class="mod-primary" onclick="salvarData('${item.id}')" style="padding: 5px 10px;">Salvar</button>
+                `;
+                lista.appendChild(div);
+              });
+            }
           });
         });
       });
 
-      // Função que roda quando clica em Salvar Data
       function salvarData(itemId) {
         var dataEscolhida = document.getElementById('data-' + itemId).value;
-        if(!dataEscolhida) return alert('Por favor, escolha uma data no calendário!');
+        if(!dataEscolhida) return alert('Escolha uma data primeiro!');
         
-        // Salva a data "escondida" nos dados do cartão
         t.set('card', 'shared', 'lembrete-' + itemId, dataEscolhida)
          .then(function() {
            alert('Data do lembrete salva com sucesso!');
-           t.closePopup(); // Fecha a janelinha
+           t.closePopup(); 
          });
       }
     </script>
