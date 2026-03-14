@@ -21,30 +21,32 @@
       var t = TrelloPowerUp.iframe();
 
       t.render(function() {
-        // A MARRETA: Pedimos 'all' para o Trello não esconder os itens!
+        // O SEGREDO: Fazemos pedidos separados! Um para checklists, outro para membros.
         Promise.all([
-          t.card('all'),
+          t.card('checklists'),
+          t.card('members'),
           t.getAll()
         ]).then(function(valores) {
-          var card = valores[0];
-          var dadosSalvos = valores[1].card && valores[1].card.shared ? valores[1].card.shared : {};
+          var listas = valores[0].checklists || [];
+          var membros = valores[1].members || [];
+          var dadosSalvos = valores[2].card && valores[2].card.shared ? valores[2].card.shared : {};
           var html = '';
 
           var opcoesMembros = '<option value="">Sem responsável</option>';
-          if (card.members && card.members.length > 0) {
-            card.members.forEach(function(membro) {
+          if (membros.length > 0) {
+            membros.forEach(function(membro) {
               opcoesMembros += `<option value="${membro.username}">${membro.fullName}</option>`;
             });
           } else {
              opcoesMembros = '<option value="">Adicione pessoas ao cartão!</option>';
           }
 
-          if (!card.checklists || card.checklists.length === 0) {
+          if (listas.length === 0) {
             document.getElementById('conteudo').innerHTML = '<p>Crie um checklist primeiro!</p>';
             return;
           }
 
-          card.checklists.forEach(function(lista) {
+          listas.forEach(function(lista) {
             html += `<h5>📋 ${lista.name}</h5>`;
             
             if (!lista.checkItems || lista.checkItems.length === 0) {
