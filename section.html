@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <style>
+      body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 5px; }
+      .linha { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #353c42; font-size: 14px;}
+      .linha:last-child { border-bottom: none; }
+      .atrasado { color: #f87168; font-weight: bold; } /* Vermelho */
+      .hoje { color: #f5cd47; font-weight: bold; } /* Amarelo */
+      .futuro { color: #579dff; } /* Azul */
+      .resp { color: #9fadbc; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">Carregando painel...</div>
+    
+    <script>
+      var t = TrelloPowerUp.iframe();
+      
+      t.render(function() {
+        Promise.all([t.card('checklists'), t.getAll()]).then(function(valores) {
+          var listas = valores[0].checklists || [];
+          var dadosSalvos = valores[1].card && valores[1].card.shared ? valores[1].card.shared : {};
+          var html = '';
+
+          var dataAtual = new Date();
+          var hojeIso = dataAtual.getFullYear() + '-' + String(dataAtual.getMonth() + 1).padStart(2, '0') + '-' + String(dataAtual.getDate()).padStart(2, '0');
+
+          listas.forEach(function(lista) {
+            if (lista.checkItems) {
+              lista.checkItems.forEach(function(item) {
+                // Só mostra no painel se não estiver concluído e se tiver data
+                if (item.state !== 'complete' && dadosSalvos['data-' + item.id]) {
+                  var dataAgendada = dadosSalvos['data-' + item.id];
+                  var resp = dadosSalvos['resp-' + item.id] ? '@' + dadosSalvos['resp-' + item.id] : 'Sem resp.';
+                  
+                  var classeCor = (dataAgendada < hojeIso) ? 'atrasado' : (dataAgendada === hojeIso ? 'hoje' : 'futuro');
+                  var dataVisivel = dataAgendada.split('-').reverse().join('/'); // Troca para 14/03/2026
+
+                  html += `
+                    <div class="linha">
+                      <span style="width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
+                      <span class="resp" style="width: 25%; text-align: center;">${resp}</span>
+                      <span class="${classeCor}" style="width: 25%; text-align: right;">${dataVisivel}</span>
+                    </div>
+                  `;
+                }
+              });
+            }
+          });
+
+          if (html === '') {
+            html = '<p style="color: #9fadbc; text-align: center; margin: 0;">Nenhum lembrete pendente agendado.</p>';
+          }
+
+          document.getElementById('lista').innerHTML = html;
+          t.sizeTo('#lista').catch(function(){}); // Ajusta a altura automaticamente
+        });
+      });
+    </script>
+  </body>
+</html>
