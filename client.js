@@ -1,12 +1,10 @@
 console.log("🚀 Lembrete de Checklist carregado!");
 
-// Usando um link externo direto e confiável para o ícone
-var linkDoIcone = "https://img.icons8.com/color/48/calendar--v1.png";
-
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
     return [{
-      icon: linkDoIcone,
+      // Agora o Trello confia, pois a imagem vem da mesma pasta do código!
+      icon: './icone.svg', 
       text: 'Lembrete de Checklist',
       callback: function(t) {
         return t.popup({
