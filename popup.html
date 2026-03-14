@@ -21,20 +21,18 @@
       var t = TrelloPowerUp.iframe();
 
       t.render(function() {
-        // Agora pedimos os checklists E os membros (pessoas) do cartão
+        // A MARRETA: Pedimos 'all' para o Trello não esconder os itens!
         Promise.all([
-          t.card('checklists', 'members'),
+          t.card('all'),
           t.getAll()
         ]).then(function(valores) {
           var card = valores[0];
           var dadosSalvos = valores[1].card && valores[1].card.shared ? valores[1].card.shared : {};
           var html = '';
 
-          // 1. Prepara a lista de pessoas para o campo de seleção
           var opcoesMembros = '<option value="">Sem responsável</option>';
           if (card.members && card.members.length > 0) {
             card.members.forEach(function(membro) {
-              // Salvamos o username (ex: @williansena) para o robô usar depois
               opcoesMembros += `<option value="${membro.username}">${membro.fullName}</option>`;
             });
           } else {
@@ -50,7 +48,7 @@
             html += `<h5>📋 ${lista.name}</h5>`;
             
             if (!lista.checkItems || lista.checkItems.length === 0) {
-              html += `<p style="color: #8c9bab; font-size: 12px;">Lista vazia.</p>`;
+              html += `<p style="color: #8c9bab; font-size: 12px;">Lista vazia (adicione itens e dê Enter).</p>`;
             } else {
               lista.checkItems.forEach(function(item) {
                 
@@ -60,7 +58,6 @@
                 var dataAntiga = dadosSalvos[idData] || '';
                 var respAntigo = dadosSalvos[idResp] || '';
 
-                // Truque para deixar a pessoa que já estava salva selecionada
                 var selectPronto = opcoesMembros.replace(`value="${respAntigo}"`, `value="${respAntigo}" selected`);
 
                 html += `
@@ -68,7 +65,7 @@
                     <strong style="color: #dfe1e6;">${item.name}</strong>
                     <div class="linha-inputs">
                       <input type="date" id="${idData}" value="${dataAntiga}" title="Data do lembrete">
-                      <select id="${idResp}" title="Quem o robô deve cobrar?">
+                      <select id="${idResp}" title="Quem cobrar?">
                         ${selectPronto}
                       </select>
                     </div>
@@ -80,17 +77,17 @@
           });
 
           document.getElementById('conteudo').innerHTML = html;
+        }).catch(function(err){
+           document.getElementById('conteudo').innerHTML = '<p>Erro ao carregar dados.</p>';
         });
       });
 
-      // Função que salva a Data E o Responsável juntos
       window.salvar = function(id) {
         var dataEscolhida = document.getElementById('data-' + id).value;
         var respEscolhido = document.getElementById('resp-' + id).value;
         
         if (!dataEscolhida) return alert('Escolha uma data no calendário!');
         
-        // Salva os dois dados de uma vez no cartão
         t.set('card', 'shared', {
           ['data-' + id]: dataEscolhida,
           ['resp-' + id]: respEscolhido
