@@ -5,34 +5,44 @@
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-      /* Cores perfeitas para o Modo Escuro do Trello */
       body { padding: 15px; font-family: sans-serif; color: #b6c2cf; background-color: #282e33; }
-      .item-box { background: #22272b; padding: 10px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #738496; }
+      .item-box { background: #22272b; padding: 10px; border-radius: 5px; margin-bottom: 12px; border: 1px solid #738496; display: flex; flex-direction: column; gap: 8px;}
       h5 { margin-top: 15px; color: #579dff; font-weight: bold; }
-      input[type="date"] { background: #282e33; color: #b6c2cf; border: 1px solid #738496; padding: 5px; border-radius: 3px; outline: none; }
-      .mod-primary { margin-left: 5px; }
+      input[type="date"], select { background: #282e33; color: #b6c2cf; border: 1px solid #738496; padding: 6px; border-radius: 3px; outline: none; width: 100%; box-sizing: border-box; }
+      .mod-primary { width: 100%; margin-top: 5px; }
+      .linha-inputs { display: flex; gap: 5px; }
     </style>
   </head>
   <body>
-    <h4 style="color: #fff;">📅 Datas do Checklist</h4>
+    <h4 style="color: #fff;">📅 Agendar Lembretes</h4>
     <div id="conteudo">Carregando seus itens...</div>
 
     <script>
       var t = TrelloPowerUp.iframe();
 
       t.render(function() {
-        // Pede os checklists E as datas que já salvamos antes
+        // Agora pedimos os checklists E os membros (pessoas) do cartão
         Promise.all([
-          t.card('checklists'),
-          t.getAll() // Puxa os dados escondidos
+          t.card('checklists', 'members'),
+          t.getAll()
         ]).then(function(valores) {
           var card = valores[0];
-          // Separa só as nossas datas salvas
           var dadosSalvos = valores[1].card && valores[1].card.shared ? valores[1].card.shared : {};
           var html = '';
 
+          // 1. Prepara a lista de pessoas para o campo de seleção
+          var opcoesMembros = '<option value="">Sem responsável</option>';
+          if (card.members && card.members.length > 0) {
+            card.members.forEach(function(membro) {
+              // Salvamos o username (ex: @williansena) para o robô usar depois
+              opcoesMembros += `<option value="${membro.username}">${membro.fullName}</option>`;
+            });
+          } else {
+             opcoesMembros = '<option value="">Adicione pessoas ao cartão!</option>';
+          }
+
           if (!card.checklists || card.checklists.length === 0) {
-            document.getElementById('conteudo').innerHTML = '<p>Crie um checklist e adicione itens primeiro!</p>';
+            document.getElementById('conteudo').innerHTML = '<p>Crie um checklist primeiro!</p>';
             return;
           }
 
@@ -44,17 +54,25 @@
             } else {
               lista.checkItems.forEach(function(item) {
                 
-                // Procura se esse item já tem uma data salva
-                var idDoItem = 'data-' + item.id;
-                var dataAntiga = dadosSalvos[idDoItem] || '';
+                var idData = 'data-' + item.id;
+                var idResp = 'resp-' + item.id;
+                
+                var dataAntiga = dadosSalvos[idData] || '';
+                var respAntigo = dadosSalvos[idResp] || '';
+
+                // Truque para deixar a pessoa que já estava salva selecionada
+                var selectPronto = opcoesMembros.replace(`value="${respAntigo}"`, `value="${respAntigo}" selected`);
 
                 html += `
                   <div class="item-box">
-                    <strong style="color: #dfe1e6;">${item.name}</strong><br>
-                    <div style="margin-top: 8px;">
-                      <input type="date" id="${item.id}" value="${dataAntiga}">
-                      <button class="mod-primary" onclick="salvar('${item.id}')">Salvar</button>
+                    <strong style="color: #dfe1e6;">${item.name}</strong>
+                    <div class="linha-inputs">
+                      <input type="date" id="${idData}" value="${dataAntiga}" title="Data do lembrete">
+                      <select id="${idResp}" title="Quem o robô deve cobrar?">
+                        ${selectPronto}
+                      </select>
                     </div>
+                    <button class="mod-primary" onclick="salvar('${item.id}')">Salvar Lembrete</button>
                   </div>
                 `;
               });
@@ -65,13 +83,19 @@
         });
       });
 
-      // Função de Salvar a data no cartão
+      // Função que salva a Data E o Responsável juntos
       window.salvar = function(id) {
-        var data = document.getElementById(id).value;
-        if (!data) return alert('Escolha uma data no calendário primeiro!');
+        var dataEscolhida = document.getElementById('data-' + id).value;
+        var respEscolhido = document.getElementById('resp-' + id).value;
         
-        t.set('card', 'shared', 'data-' + id, data).then(function() {
-          alert('Data salva com sucesso! 🚀');
+        if (!dataEscolhida) return alert('Escolha uma data no calendário!');
+        
+        // Salva os dois dados de uma vez no cartão
+        t.set('card', 'shared', {
+          ['data-' + id]: dataEscolhida,
+          ['resp-' + id]: respEscolhido
+        }).then(function() {
+          alert('Pronto! Data e Responsável salvos com sucesso. 🚀');
         });
       }
     </script>
