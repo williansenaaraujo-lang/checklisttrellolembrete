@@ -7,7 +7,11 @@ TrelloPowerUp.initialize({
       icon: './icone.svg',
       text: 'Agendar Lembrete',
       callback: function(t) {
-        return t.popup({ title: 'Agendar Lembrete', url: './popup.html' });
+        return t.popup({ 
+          title: 'Agendar Lembrete', 
+          url: './popup.html',
+          height: 500 // 🚀 A MÁGICA AQUI: Aumentamos a altura do popup!
+        });
       }
     }];
   },
@@ -20,7 +24,7 @@ TrelloPowerUp.initialize({
       content: {
         type: 'iframe',
         url: t.signUrl('./section.html'),
-        height: 100 // Altura inicial que vai se ajustando
+        height: 100
       }
     };
   }
