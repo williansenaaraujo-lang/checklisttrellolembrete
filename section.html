@@ -24,32 +24,47 @@
         Promise.all([t.card('checklists'), t.getAll()]).then(function(valores) {
           var listas = valores[0].checklists || [];
           var dadosSalvos = valores[1].card && valores[1].card.shared ? valores[1].card.shared : {};
-          var html = '';
-
+          
           var dataAtual = new Date();
           var hojeIso = dataAtual.getFullYear() + '-' + String(dataAtual.getMonth() + 1).padStart(2, '0') + '-' + String(dataAtual.getDate()).padStart(2, '0');
+
+          // 1. Cria uma lista vazia para guardar os itens antes de mostrar
+          var itensParaMostrar = [];
 
           listas.forEach(function(lista) {
             if (lista.checkItems) {
               lista.checkItems.forEach(function(item) {
-                // Só mostra no painel se não estiver concluído e se tiver data
                 if (item.state !== 'complete' && dadosSalvos['data-' + item.id]) {
-                  var dataAgendada = dadosSalvos['data-' + item.id];
-                  var resp = dadosSalvos['resp-' + item.id] ? '@' + dadosSalvos['resp-' + item.id] : 'Sem resp.';
-                  
-                  var classeCor = (dataAgendada < hojeIso) ? 'atrasado' : (dataAgendada === hojeIso ? 'hoje' : 'futuro');
-                  var dataVisivel = dataAgendada.split('-').reverse().join('/'); // Troca para 14/03/2026
-
-                  html += `
-                    <div class="linha">
-                      <span style="width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
-                      <span class="resp" style="width: 25%; text-align: center;">${resp}</span>
-                      <span class="${classeCor}" style="width: 25%; text-align: right;">${dataVisivel}</span>
-                    </div>
-                  `;
+                  itensParaMostrar.push({
+                    nome: item.name,
+                    dataIso: dadosSalvos['data-' + item.id],
+                    resp: dadosSalvos['resp-' + item.id] ? '@' + dadosSalvos['resp-' + item.id] : 'Sem resp.'
+                  });
                 }
               });
             }
+          });
+
+          // 2. A MÁGICA DA ORDENAÇÃO: Coloca em ordem cronológica (do mais antigo pro mais novo)
+          itensParaMostrar.sort(function(a, b) {
+            if (a.dataIso < b.dataIso) return -1;
+            if (a.dataIso > b.dataIso) return 1;
+            return 0;
+          });
+
+          // 3. Agora sim, desenha na tela na ordem correta
+          var html = '';
+          itensParaMostrar.forEach(function(item) {
+            var classeCor = (item.dataIso < hojeIso) ? 'atrasado' : (item.dataIso === hojeIso ? 'hoje' : 'futuro');
+            var dataVisivel = item.dataIso.split('-').reverse().join('/');
+
+            html += `
+              <div class="linha">
+                <span style="width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.nome}</span>
+                <span class="resp" style="width: 25%; text-align: center;">${item.resp}</span>
+                <span class="${classeCor}" style="width: 25%; text-align: right;">${dataVisivel}</span>
+              </div>
+            `;
           });
 
           if (html === '') {
@@ -57,7 +72,7 @@
           }
 
           document.getElementById('lista').innerHTML = html;
-          t.sizeTo('#lista').catch(function(){}); // Ajusta a altura automaticamente
+          t.sizeTo('#lista').catch(function(){});
         });
       });
     </script>
