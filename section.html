@@ -15,11 +15,13 @@
     </style>
   </head>
   <body>
-    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">Buscando dados no servidor...</div>
+    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">
+      <p style="color: #9fadbc; text-align: center; margin: 0;">Sincronizando com o servidor...</p>
+    </div>
     
     <script>
       var t = TrelloPowerUp.iframe();
-      var timer1, timer2; // Variáveis para guardar nossos alarmes
+      var htmlAnterior = ""; // Memória para não deixar a tela piscar
       
       function buscarEDesenhar() {
         Promise.all([
@@ -37,7 +39,6 @@
           listas.forEach(function(lista) {
             if (lista.checkItems) {
               lista.checkItems.forEach(function(item) {
-                // Só pega se não estiver concluído e se DE FATO a data existir
                 if (item.state !== 'complete' && dadosSalvos['data-' + item.id]) {
                   itensParaMostrar.push({
                     nome: item.name,
@@ -49,7 +50,6 @@
             }
           });
 
-          // Ordenação Matemática
           itensParaMostrar.sort(function(a, b) {
             if (a.dataIso < b.dataIso) return -1;
             if (a.dataIso > b.dataIso) return 1;
@@ -74,23 +74,22 @@
             html = '<p style="color: #9fadbc; text-align: center; margin: 0;">Nenhum lembrete pendente agendado.</p>';
           }
 
-          document.getElementById('lista').innerHTML = html;
-          t.sizeTo('#lista').catch(function(){});
+          // 🛡️ A MÁGICA: Só atualiza a tela se o Trello finalmente mandou os dados novos!
+          if (html !== htmlAnterior) {
+            document.getElementById('lista').innerHTML = html;
+            htmlAnterior = html;
+            t.sizeTo('#lista').catch(function(){});
+          }
         });
       }
 
-      // O Trello chama essa função quando abre o cartão
+      // 1. Tenta desenhar assim que abre o cartão
       t.render(function() {
-        buscarEDesenhar(); // 1ª Tentativa: Imediata
-        
-        // Limpa os alarmes antigos para não virar bagunça
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-        
-        // 2ª e 3ª Tentativas: Busca de novo 1 e 2 segundos depois para pegar dados atrasados do Trello
-        timer1 = setTimeout(buscarEDesenhar, 1000);
-        timer2 = setTimeout(buscarEDesenhar, 2000);
+        buscarEDesenhar(); 
       });
+
+      // 2. O RADAR: Fica varrendo o Trello a cada 2 segundos invisivelmente
+      setInterval(buscarEDesenhar, 2000);
     </script>
   </body>
 </html>
