@@ -5,9 +5,10 @@
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background-color: #282e33; color: #b6c2cf; margin: 0; padding: 0; }
         .container { background-color: #22272b; border-radius: 5px; padding: 10px; }
         .linha { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #353c42; font-size: 13px; }
+        .linha:last-child { border-bottom: none; }
         .atrasado { color: #f87168; font-weight: bold; }
         .hoje { color: #f5cd47; font-weight: bold; }
         .futuro { color: #579dff; }
@@ -15,38 +16,22 @@
     </style>
 </head>
 <body>
-    <div id="lista" class="container">Procurando dados...</div>
+    <div id="lista" class="container">Carregando dados...</div>
     <script>
         var t = TrelloPowerUp.iframe();
-        var lastPing = 0;
 
+        // Trello cuida de rodar isso de novo caso o cartão mude!
         t.render(function() {
-            Promise.all([ t.card('checklists'), t.getAll() ]).then(function(res) {
+            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
                 var checklists = res[0].checklists || [];
-                var all = res[1] || {};
-                var shared = (all.card && all.card.shared) ? all.card.shared : {};
+                var shared = res[1] || {};
                 var dbNew = shared.dbLembretes || {};
-
-                // ⚡ O DESFIBRILADOR (Se o Trello mandar fantasma, dá o choque)
-                var hasLists = checklists.length > 0;
-                var hasItems = false;
-                checklists.forEach(function(l) { if (l.checkItems && l.checkItems.length > 0) hasItems = true; });
-
-                if (hasLists && !hasItems) {
-                    if (Date.now() - lastPing > 3000) {
-                        lastPing = Date.now();
-                        t.set('card', 'shared', 'ping WakeUp', Date.now()); 
-                        return; 
-                    }
-                }
-
                 var final = [];
                 var hoje = new Date().toISOString().split('T')[0];
 
                 checklists.forEach(function(l) {
                     (l.checkItems || []).forEach(function(i) {
                         if (i.state !== 'complete') {
-                            // Puxa as datas antigas ou novas
                             var d = dbNew['data-' + i.id] || shared['data-' + i.id];
                             var r = dbNew['resp-' + i.id] || shared['resp-' + i.id];
                             if (d) final.push({ n: i.name, d: d, r: r });
@@ -71,6 +56,9 @@
                     document.getElementById('lista').innerHTML = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete para este cartão.</p>';
                 }
                 t.sizeTo('body');
+            }).catch(function(err) {
+                document.getElementById('lista').innerHTML = '<p style="color:#f87168;text-align:center;margin:0;">Erro de leitura.</p>';
+                console.error(err);
             });
         });
     </script>
