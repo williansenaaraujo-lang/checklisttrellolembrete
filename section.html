@@ -1,95 +1,73 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-      body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 5px; }
-      .linha { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #353c42; font-size: 14px;}
-      .linha:last-child { border-bottom: none; }
-      .atrasado { color: #f87168; font-weight: bold; }
-      .hoje { color: #f5cd47; font-weight: bold; }
-      .futuro { color: #579dff; }
-      .resp { color: #9fadbc; font-size: 12px; }
+        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 5px; }
+        .linha { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #353c42; font-size: 14px;}
+        .atrasado { color: #f87168; font-weight: bold; }
+        .hoje { color: #f5cd47; font-weight: bold; }
+        .futuro { color: #579dff; }
+        .resp { color: #9fadbc; font-size: 12px; }
     </style>
-  </head>
-  <body>
-    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">
-      <p style="color: #9fadbc; text-align: center; margin: 0;">Sincronizando com o servidor...</p>
-    </div>
-    
+</head>
+<body>
+    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">Sincronizando...</div>
+
     <script>
-      var t = TrelloPowerUp.iframe();
-      var htmlAnterior = ""; // Memória para não deixar a tela piscar
-      
-      function buscarEDesenhar() {
-        Promise.all([
-          t.card('checklists'),
-          t.get('card', 'shared')
-        ]).then(function(valores) {
-          var listas = valores[0].checklists || [];
-          var dadosSalvos = valores[1] || {}; 
-          
-          var dataAtual = new Date();
-          var hojeIso = dataAtual.getFullYear() + '-' + String(dataAtual.getMonth() + 1).padStart(2, '0') + '-' + String(dataAtual.getDate()).padStart(2, '0');
+        var t = TrelloPowerUp.iframe();
+        var ultimaCarga = "";
 
-          var itensParaMostrar = [];
+        function renderizar() {
+            Promise.all([
+                t.card('checklists'),
+                t.get('card', 'shared', 'dbLembretes')
+            ]).then(function(valores) {
+                var checklists = valores[0].checklists || [];
+                var db = valores[1] || {};
+                var itensParaMostrar = [];
 
-          listas.forEach(function(lista) {
-            if (lista.checkItems) {
-              lista.checkItems.forEach(function(item) {
-                if (item.state !== 'complete' && dadosSalvos['data-' + item.id]) {
-                  itensParaMostrar.push({
-                    nome: item.name,
-                    dataIso: dadosSalvos['data-' + item.id],
-                    resp: dadosSalvos['resp-' + item.id] ? '@' + dadosSalvos['resp-' + item.id] : 'Sem resp.'
-                  });
+                checklists.forEach(function(lista) {
+                    if (lista.checkItems) {
+                        lista.checkItems.forEach(function(item) {
+                            if (item.state !== 'complete' && db['data-' + item.id]) {
+                                itensParaMostrar.push({
+                                    nome: item.name,
+                                    dataIso: db['data-' + item.id],
+                                    resp: db['resp-' + item.id] ? '@' + db['resp-' + item.id] : 'Sem resp.'
+                                });
+                            }
+                        });
+                    }
+                });
+
+                itensParaMostrar.sort((a, b) => a.dataIso.localeCompare(b.dataIso));
+                var html = '';
+                var hoje = new Date().toISOString().split('T')[0];
+
+                itensParaMostrar.forEach(function(item) {
+                    var classe = (item.dataIso < hoje) ? 'atrasado' : (item.dataIso === hoje ? 'hoje' : 'futuro');
+                    html += `<div class="linha">
+                        <span style="width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.nome}</span>
+                        <span class="resp">${item.resp}</span>
+                        <span class="${classe}">${item.dataIso.split('-').reverse().join('/')}</span>
+                    </div>`;
+                });
+
+                if (html === '') html = '<p style="text-align:center;color:#9fadbc;margin:0;">Nenhum lembrete agendado.</p>';
+                
+                if (html !== ultimaCarga) {
+                    document.getElementById('lista').innerHTML = html;
+                    ultimaCarga = html;
+                    t.sizeTo('#lista').catch(() => {});
                 }
-              });
-            }
-          });
+            });
+        }
 
-          itensParaMostrar.sort(function(a, b) {
-            if (a.dataIso < b.dataIso) return -1;
-            if (a.dataIso > b.dataIso) return 1;
-            return 0;
-          });
-
-          var html = '';
-          itensParaMostrar.forEach(function(item) {
-            var classeCor = (item.dataIso < hojeIso) ? 'atrasado' : (item.dataIso === hojeIso ? 'hoje' : 'futuro');
-            var dataVisivel = item.dataIso.split('-').reverse().join('/');
-
-            html += `
-              <div class="linha">
-                <span style="width: 50%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.nome}</span>
-                <span class="resp" style="width: 25%; text-align: center;">${item.resp}</span>
-                <span class="${classeCor}" style="width: 25%; text-align: right;">${dataVisivel}</span>
-              </div>
-            `;
-          });
-
-          if (html === '') {
-            html = '<p style="color: #9fadbc; text-align: center; margin: 0;">Nenhum lembrete pendente agendado.</p>';
-          }
-
-          // 🛡️ A MÁGICA: Só atualiza a tela se o Trello finalmente mandou os dados novos!
-          if (html !== htmlAnterior) {
-            document.getElementById('lista').innerHTML = html;
-            htmlAnterior = html;
-            t.sizeTo('#lista').catch(function(){});
-          }
-        });
-      }
-
-      // 1. Tenta desenhar assim que abre o cartão
-      t.render(function() {
-        buscarEDesenhar(); 
-      });
-
-      // 2. O RADAR: Fica varrendo o Trello a cada 2 segundos invisivelmente
-      setInterval(buscarEDesenhar, 2000);
+        t.render(function() { renderizar(); });
+        setInterval(renderizar, 2000); // Radar de busca a cada 2s
     </script>
-  </body>
+</body>
 </html>
