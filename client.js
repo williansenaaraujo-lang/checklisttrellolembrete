@@ -1,4 +1,4 @@
-console.log("🚀 Lembrete v500 - Proteção Anti-Cache Ativada");
+console.log("🚀 Lembrete v999 - Renderização Otimista e Manual");
 
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
@@ -8,7 +8,7 @@ TrelloPowerUp.initialize({
       callback: function(t) {
         return t.popup({ 
           title: 'Agendar Lembrete', 
-          url: './popup.html', 
+          url: './popup.html?v=999', // 🚀 Fura-Cache Definitivo
           height: 500
         });
       }
@@ -20,7 +20,7 @@ TrelloPowerUp.initialize({
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html'), 
+        url: t.signUrl('./section.html?v=999'), // 🚀 Fura-Cache Definitivo
         height: 120
       }
     };
