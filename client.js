@@ -23,7 +23,7 @@ TrelloPowerUp.initialize({
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=3'), // 🚀 FORÇANDO A VERSÃO 3
+        url: t.signUrl('./section.html?v=4'), // 🚀 FORÇANDO A VERSÃO 3
         height: 100
       }
     };
