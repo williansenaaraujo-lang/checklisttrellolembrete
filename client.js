@@ -1,7 +1,6 @@
-console.log("🚀 Lembrete de Checklist carregado com Painel Fixo!");
+console.log("🚀 Lembrete v2.0 Carregado!");
 
 TrelloPowerUp.initialize({
-  // 1. O Botão de sempre para abrir o popup de agendar
   'card-buttons': function(t, options) {
     return [{
       icon: './icone.svg',
@@ -10,20 +9,18 @@ TrelloPowerUp.initialize({
         return t.popup({ 
           title: 'Agendar Lembrete', 
           url: './popup.html',
-          height: 500 // 🚀 A MÁGICA AQUI: Aumentamos a altura do popup!
+          height: 500
         });
       }
     }];
   },
-  
-  // 2. A MÁGICA: O Painel fixo dentro do corpo do cartão!
   'card-back-section': function(t, options) {
-   return {
+    return {
       title: '📅 Lembretes Agendados',
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=4'), // 🚀 FORÇANDO A VERSÃO 3
+        url: t.signUrl('./section.html?v=10'), 
         height: 100
       }
     };
