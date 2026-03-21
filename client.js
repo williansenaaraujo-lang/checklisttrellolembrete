@@ -1,4 +1,4 @@
-console.log("🚀 Lembrete v4.0 - Com Desfibrilador Anti-Ghost");
+console.log("🚀 Lembrete v100 - Código Estável e Oficial");
 
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
@@ -8,7 +8,7 @@ TrelloPowerUp.initialize({
       callback: function(t) {
         return t.popup({ 
           title: 'Agendar Lembrete', 
-          url: './popup.html?v=40', // 🚀 Versão 40
+          url: './popup.html?v=100', // 🚀 Versão 100 (Fim do Cache)
           height: 500
         });
       }
@@ -20,7 +20,7 @@ TrelloPowerUp.initialize({
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=40'), // 🚀 Versão 40
+        url: t.signUrl('./section.html?v=100'), // 🚀 Versão 100 (Fim do Cache)
         height: 120
       }
     };
