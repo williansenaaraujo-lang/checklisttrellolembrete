@@ -16,24 +16,36 @@
     </style>
 </head>
 <body>
-    <div id="lista" class="container">Carregando dados...</div>
+    <div id="lista" class="container">Procurando datas...</div>
     <script>
         var t = TrelloPowerUp.iframe();
+        var bancoDeDados = {};
 
-        // Trello cuida de rodar isso de novo caso o cartão mude!
-        t.render(function() {
-            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
-                var checklists = res[0].checklists || [];
-                var shared = res[1] || {};
-                var dbNew = shared.dbLembretes || {};
+        function desenharPainel() {
+            t.card('checklists').then(function(cardInfo) {
+                var checklists = cardInfo.checklists || [];
+                
+                var temItens = false;
+                checklists.forEach(function(c) {
+                    if (c.checkItems && c.checkItems.length > 0) temItens = true;
+                });
+
+                // 🔄 O LOOP DA PACIÊNCIA também no painel
+                if (checklists.length > 0 && !temItens) {
+                    document.getElementById('lista').innerHTML = '<p style="text-align:center;font-size:12px;color:#f5cd47;margin:0;">Aguardando Trello baixar as tarefas...</p>';
+                    setTimeout(desenharPainel, 1000);
+                    return;
+                }
+
+                var dbNew = bancoDeDados.dbLembretes || {};
                 var final = [];
                 var hoje = new Date().toISOString().split('T')[0];
 
                 checklists.forEach(function(l) {
                     (l.checkItems || []).forEach(function(i) {
                         if (i.state !== 'complete') {
-                            var d = dbNew['data-' + i.id] || shared['data-' + i.id];
-                            var r = dbNew['resp-' + i.id] || shared['resp-' + i.id];
+                            var d = dbNew['data-' + i.id] || bancoDeDados['data-' + i.id];
+                            var r = dbNew['resp-' + i.id] || bancoDeDados['resp-' + i.id];
                             if (d) final.push({ n: i.name, d: d, r: r });
                         }
                     });
@@ -56,9 +68,13 @@
                     document.getElementById('lista').innerHTML = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete para este cartão.</p>';
                 }
                 t.sizeTo('body');
-            }).catch(function(err) {
-                document.getElementById('lista').innerHTML = '<p style="color:#f87168;text-align:center;margin:0;">Erro de leitura.</p>';
-                console.error(err);
+            });
+        }
+
+        t.render(function() {
+            t.get('card', 'shared').then(function(shared) {
+                bancoDeDados = shared || {};
+                desenharPainel();
             });
         });
     </script>
