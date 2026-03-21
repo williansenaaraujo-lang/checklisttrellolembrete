@@ -16,48 +16,49 @@
     </style>
 </head>
 <body>
-    <div id="lista" class="container">
-        <p style="text-align:center;font-size:12px;color:#f5cd47;margin:0;">Sincronizando tarefas...</p>
-    </div>
+    <div id="lista" class="container">Carregando painel...</div>
 
     <script>
         var t = TrelloPowerUp.iframe();
-        var dbSalvo = {};
-        var tentativas = 0;
+        var htmlMemoria = ''; 
 
         function desenharPainel() {
-            t.card('all').then(function(card) {
-                var checklists = card.checklists || [];
-                
-                var temItens = false;
-                checklists.forEach(function(c) {
-                    if (c.checkItems && c.checkItems.length > 0) temItens = true;
-                });
+            Promise.all([ t.card('checklists'), t.get('card', 'shared', 'dbLembretes') ]).then(function(res) {
+                var checklists = res[0].checklists || [];
+                var db = res[1] || {};
+                var itensParaMostrar = {};
 
-                if (checklists.length > 0 && !temItens) {
-                    tentativas++;
-                    if (tentativas < 4) {
-                        setTimeout(desenharPainel, 1000);
-                        return;
+                // 1. MEMÓRIA FOTOGRÁFICA: Carrega tudo que está salvo instantaneamente
+                for (var key in db) {
+                    if (key.startsWith('data-')) {
+                        var id = key.replace('data-', '');
+                        itensParaMostrar[id] = {
+                            id: id,
+                            d: db['data-' + id],
+                            r: db['resp-' + id] || '',
+                            n: db['nome-' + id] || 'Tarefa Agendada' // Usa o nome salvo!
+                        };
                     }
                 }
 
-                var final = [];
-                var hoje = new Date().toISOString().split('T')[0];
-
-                checklists.forEach(function(l) {
-                    (l.checkItems || []).forEach(function(i) {
-                        if (i.state !== 'complete') {
-                            var d = dbSalvo['data-' + i.id];
-                            var r = dbSalvo['resp-' + i.id];
-                            if (d) final.push({ n: i.name, d: d, r: r });
+                // 2. ATUALIZAÇÃO: Se o Trello já carregou os checklists, esconde o que foi concluído
+                checklists.forEach(function(lista) {
+                    (lista.checkItems || []).forEach(function(item) {
+                        if (itensParaMostrar[item.id]) {
+                            itensParaMostrar[item.id].n = item.name; // Pega o nome mais atual se tiver
+                            if (item.state === 'complete') {
+                                delete itensParaMostrar[item.id]; // Remove da tela
+                            }
                         }
                     });
                 });
 
+                var final = Object.values(itensParaMostrar);
+                var hoje = new Date().toISOString().split('T')[0];
+                var html = '';
+
                 if (final.length > 0) {
                     final.sort(function(a,b) { return a.d.localeCompare(b.d); });
-                    var html = '';
                     final.forEach(function(it) {
                         var cls = (it.d < hoje) ? 'atrasado' : (it.d === hoje ? 'hoje' : 'futuro');
                         var resp = it.r ? '@' + it.r : '';
@@ -67,21 +68,20 @@
                             <span class="${cls}">${it.d.split('-').reverse().join('/')}</span>
                         </div>`;
                     });
-                    document.getElementById('lista').innerHTML = html;
                 } else {
-                    document.getElementById('lista').innerHTML = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete para este cartão.</p>';
+                    html = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete para este cartão.</p>';
                 }
-                t.sizeTo('body');
+
+                if (html !== htmlMemoria) {
+                    document.getElementById('lista').innerHTML = html;
+                    htmlMemoria = html;
+                    t.sizeTo('body');
+                }
             });
         }
 
-        t.render(function() {
-            t.get('card', 'shared', 'dbLembretes').then(function(db) {
-                dbSalvo = db || {};
-                tentativas = 0;
-                desenharPainel();
-            });
-        });
+        t.render(function() { desenharPainel(); });
+        setInterval(desenharPainel, 2000); // Patrulha silenciosa e inofensiva
     </script>
 </body>
 </html>
