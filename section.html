@@ -15,27 +15,32 @@
     </style>
 </head>
 <body>
-    <div id="lista" class="container">Sincronizando...</div>
+    <div id="lista" class="container">Procurando dados...</div>
 
     <script>
         var t = TrelloPowerUp.iframe();
         function renderizar() {
-            Promise.all([ t.card('checklists'), t.get('card', 'shared', 'dbLembretes') ]).then(function(res) {
+            Promise.all([ t.card('checklists'), t.getAll() ]).then(function(res) {
                 var lists = res[0].checklists || [];
-                var db = res[1] || {};
+                var all = res[1] || {};
+                var shared = (all.card && all.card.shared) ? all.card.shared : {};
+                var dbNew = shared.dbLembretes || {};
                 var final = [];
                 var hoje = new Date().toISOString().split('T')[0];
 
                 lists.forEach(function(l) {
                     (l.checkItems || []).forEach(function(i) {
-                        if (i.state !== 'complete' && db['data-' + i.id]) {
-                            final.push({ n: i.name, d: db['data-' + i.id], r: db['resp-' + i.id] });
+                        if (i.state !== 'complete') {
+                            // 🛡️ Lendo as datas agendadas velhas E as novas
+                            var d = dbNew['data-' + i.id] || shared['data-' + i.id];
+                            var r = dbNew['resp-' + i.id] || shared['resp-' + i.id];
+                            if (d) final.push({ n: i.name, d: d, r: r });
                         }
                     });
                 });
 
                 if (final.length > 0) {
-                    final.sort((a,b) => a.d.localeCompare(b.d));
+                    final.sort(function(a,b) { return a.d.localeCompare(b.d); });
                     var html = '';
                     final.forEach(function(it) {
                         var cls = (it.d < hoje) ? 'atrasado' : (it.d === hoje ? 'hoje' : 'futuro');
@@ -54,7 +59,7 @@
             });
         }
         t.render(renderizar);
-        setInterval(renderizar, 3000);
+        setInterval(renderizar, 2000); // Radar
     </script>
 </body>
 </html>
