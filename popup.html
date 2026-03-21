@@ -5,85 +5,85 @@
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; padding: 15px; }
+        body { font-family: sans-serif; background-color: #282e33; color: #b6c2cf; padding: 15px; margin: 0; }
         .chk-title { color: #579dff; border-bottom: 1px solid #353c42; padding-bottom: 5px; margin-top: 15px; font-size: 15px; }
         .item { margin-bottom: 10px; background-color: #22272b; padding: 10px; border-radius: 5px; border: 1px solid #353c42; }
         .item-name { font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px; }
-        input, select { width: 100%; padding: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; font-size: 13px; }
+        input, select { width: 100%; padding: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; font-size: 13px; box-sizing: border-box; margin-bottom: 5px; }
         button { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 15px; }
+        .erro { color: #f87168; text-align: center; }
     </style>
 </head>
 <body>
-    <div id="content">Sincronizando com Trello...</div>
+    <div id="content" style="text-align: center;">Carregando Lembretes...</div>
     <script>
         var t = TrelloPowerUp.iframe();
-        var lastPing = 0;
 
         function salvarTudo() {
-            try {
-                var dados = {};
-                document.querySelectorAll('input, select').forEach(function(el) {
-                    if (el.value) dados[el.id] = el.value;
-                });
-                var btn = document.getElementById('btnSalvar');
-                btn.innerHTML = 'Salvando...';
-                t.set('card', 'shared', 'dbLembretes', dados).then(function() {
-                    btn.innerHTML = '✅ Salvo!';
-                    setTimeout(function() { t.closePopup(); }, 800);
-                });
-            } catch (e) { alert("Erro: " + e.message); }
+            var dados = {};
+            document.querySelectorAll('input, select').forEach(function(el) {
+                if (el.value) dados[el.id] = el.value;
+            });
+            var btn = document.getElementById('btnSalvar');
+            btn.innerHTML = 'Salvando...';
+            
+            t.set('card', 'shared', 'dbLembretes', dados).then(function() {
+                btn.innerHTML = '✅ Salvo!';
+                setTimeout(function() { t.closePopup(); }, 800);
+            }).catch(function(e) {
+                alert("Erro ao salvar: " + e.message);
+            });
         }
 
+        // t.render é chamado nativamente e automaticamente pelo Trello
         t.render(function() {
-            Promise.all([ t.card('checklists'), t.getAll() ]).then(function(res) {
+            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
                 var checklists = res[0].checklists || [];
-                var all = res[1] || {};
-                var shared = (all.card && all.card.shared) ? all.card.shared : {};
+                var shared = res[1] || {};
                 var dbNew = shared.dbLembretes || {};
-
-                // ⚡ O DESFIBRILADOR (Se o Trello mandar fantasma, dá o choque)
-                var hasLists = checklists.length > 0;
-                var hasItems = false;
-                checklists.forEach(function(l) { if (l.checkItems && l.checkItems.length > 0) hasItems = true; });
-
-                if (hasLists && !hasItems) {
-                    if (Date.now() - lastPing > 3000) {
-                        lastPing = Date.now();
-                        t.set('card', 'shared', 'ping WakeUp', Date.now()); // Acorda o Trello!
-                        return; // Espera o Trello acordar para desenhar
-                    }
-                }
-
-                // Desenha a tela híbrida (lê o jeito velho e o jeito novo)
                 var html = '';
+
                 if (checklists.length === 0) {
-                    html = '<p style="text-align:center;">Crie um checklist primeiro!</p>';
+                    html = '<p style="text-align:center;">Nenhum checklist encontrado.</p>';
                 } else {
+                    var temItens = false;
                     checklists.forEach(function(lista) {
-                        html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
-                        (lista.checkItems || []).forEach(function(item) {
-                            if (item.state !== 'complete') {
-                                var dt = dbNew['data-' + item.id] || shared['data-' + item.id] || '';
-                                var rs = dbNew['resp-' + item.id] || shared['resp-' + item.id] || '';
-                                
-                                html += '<div class="item"><span class="item-name">' + item.name + '</span>';
-                                html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
-                                html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
-                                
-                                var equipe = ["Willian", "Gilberto", "Samira", "Giorgetti", "Rosana", "Felipe"];
-                                equipe.forEach(function(nome) {
-                                    var id = nome.toLowerCase().replace(/\s/g, '');
-                                    var sel = (rs === id) ? 'selected' : '';
-                                    html += '<option value="'+id+'" '+sel+'>'+nome+'</option>';
-                                });
-                                html += '</select></div></div>';
-                            }
-                        });
+                        if (lista.checkItems && lista.checkItems.length > 0) {
+                            temItens = true;
+                            html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
+                            lista.checkItems.forEach(function(item) {
+                                if (item.state !== 'complete') {
+                                    // Sistema Híbrido Estável: Lê as datas novas ou antigas
+                                    var dt = dbNew['data-' + item.id] || shared['data-' + item.id] || '';
+                                    var rs = dbNew['resp-' + item.id] || shared['resp-' + item.id] || '';
+                                    
+                                    html += '<div class="item"><span class="item-name">' + item.name + '</span>';
+                                    html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
+                                    html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
+                                    
+                                    var equipe = ["Willian", "Gilberto", "Samira", "Giorgetti", "Rosana", "Felipe"];
+                                    equipe.forEach(function(nome) {
+                                        var id = nome.toLowerCase().replace(/\s/g, '');
+                                        var sel = (rs === id) ? 'selected' : '';
+                                        html += '<option value="'+id+'" '+sel+'>'+nome+'</option>';
+                                    });
+                                    html += '</select></div></div>';
+                                }
+                            });
+                        }
                     });
-                    html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
+                    
+                    if (!temItens) {
+                        html = '<p style="text-align:center;">Nenhum item de checklist pendente.</p>';
+                    } else {
+                        html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
+                    }
                 }
                 document.getElementById('content').innerHTML = html;
                 t.sizeTo('body');
+            }).catch(function(err) {
+                document.getElementById('content').innerHTML = '<p class="erro">Erro ao carregar dados.</p>';
+                console.error(err);
             });
         });
     </script>
