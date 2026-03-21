@@ -1,4 +1,4 @@
-console.log("🚀 Lembrete v2.0 - Versão Blindada");
+console.log("🚀 Lembrete v2.1 - O Destruidor de Cache Definitivo");
 
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
@@ -8,7 +8,8 @@ TrelloPowerUp.initialize({
       callback: function(t) {
         return t.popup({ 
           title: 'Agendar Lembrete', 
-          url: './popup.html',
+          // 💥 O SEGREDO ESTAVA AQUI: Forçando o Trello a baixar o popup novo!
+          url: './popup.html?v=99', 
           height: 500
         });
       }
@@ -20,7 +21,7 @@ TrelloPowerUp.initialize({
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=20'), 
+        url: t.signUrl('./section.html?v=99'), 
         height: 120
       }
     };
