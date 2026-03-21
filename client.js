@@ -1,4 +1,4 @@
-console.log("🚀 Lembrete v3.0 - Sistema Híbrido");
+console.log("🚀 Lembrete v4.0 - Com Desfibrilador Anti-Ghost");
 
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
@@ -8,7 +8,7 @@ TrelloPowerUp.initialize({
       callback: function(t) {
         return t.popup({ 
           title: 'Agendar Lembrete', 
-          url: './popup.html?v=30', // 🚀 Fura-Cache 30
+          url: './popup.html?v=40', // 🚀 Versão 40
           height: 500
         });
       }
@@ -20,7 +20,7 @@ TrelloPowerUp.initialize({
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=30'), // 🚀 Fura-Cache 30
+        url: t.signUrl('./section.html?v=40'), // 🚀 Versão 40
         height: 120
       }
     };
