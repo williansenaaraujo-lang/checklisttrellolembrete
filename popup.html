@@ -10,23 +10,30 @@
         .item { margin-bottom: 10px; background-color: #22272b; padding: 10px; border-radius: 5px; border: 1px solid #353c42; }
         .item-name { font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px; }
         input, select { width: 100%; padding: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; font-size: 13px; box-sizing: border-box; margin-bottom: 5px; }
-        button { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 15px; }
+        button.salvar { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 15px; }
+        button.recarregar { background: #22272b; border: 1px solid #579dff; color: #579dff; padding: 10px; width: 100%; border-radius: 3px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="content" style="text-align: center; margin-top: 20px;">
-        <p style="color:#f5cd47; font-size: 14px;">Sincronizando tarefas...</p>
-    </div>
-    
+    <div id="content" style="text-align: center; margin-top: 20px;">Carregando...</div>
+
     <script>
         var t = TrelloPowerUp.iframe();
-        var dbSalvo = {};
-        var tentativas = 0; // O nosso contador de paciência
 
         function salvarTudo() {
             var dados = {};
-            document.querySelectorAll('input, select').forEach(function(el) {
-                if (el.value) dados[el.id] = el.value;
+            // 🛡️ A MÁGICA: Agora nós salvamos o NOME da tarefa junto com a data!
+            document.querySelectorAll('.item').forEach(function(el) {
+                var id = el.getAttribute('data-id');
+                var nomeVal = el.getAttribute('data-nome');
+                var dataVal = document.getElementById('data-' + id).value;
+                var respVal = document.getElementById('resp-' + id).value;
+
+                if (dataVal) {
+                    dados['data-' + id] = dataVal;
+                    dados['nome-' + id] = nomeVal; 
+                    if (respVal) dados['resp-' + id] = respVal;
+                }
             });
             var btn = document.getElementById('btnSalvar');
             btn.innerHTML = 'Salvando...';
@@ -37,46 +44,39 @@
         }
 
         function desenharInterface() {
-            // Pedimos 'all' para forçar o Trello a mandar tudo o que tem
-            t.card('all').then(function(card) {
-                var checklists = card.checklists || [];
-                
-                if (checklists.length === 0) {
-                    document.getElementById('content').innerHTML = '<p>Nenhum checklist criado neste cartão.</p>';
+            document.getElementById('content').innerHTML = 'Buscando tarefas...';
+            Promise.all([ t.card('checklists'), t.get('card', 'shared', 'dbLembretes') ]).then(function(res) {
+                var checklists = res[0].checklists || [];
+                var db = res[1] || {};
+
+                var temItens = false;
+                checklists.forEach(function(c) { if (c.checkItems && c.checkItems.length > 0) temItens = true; });
+
+                // 🔄 SE O TRELLO DEMORAR: Mostra o botão manual em vez de dar erro
+                if (!temItens) {
+                    document.getElementById('content').innerHTML = `
+                        <p style="color:#f5cd47; font-size: 14px; margin-bottom:15px;">
+                            O servidor do Trello ainda não sincronizou suas tarefas recém-criadas.
+                        </p>
+                        <button class="recarregar" onclick="desenharInterface()">🔄 Buscar Novamente</button>
+                    `;
                     t.sizeTo('body');
                     return;
                 }
 
-                var temItens = false;
-                checklists.forEach(function(c) {
-                    if (c.checkItems && c.checkItems.length > 0) temItens = true;
-                });
-
-                // O ROBÔ SILENCIOSO: Tenta buscar os dados 3 vezes invisivelmente
-                if (!temItens) {
-                    tentativas++;
-                    if (tentativas < 4) {
-                        setTimeout(desenharInterface, 1000); // Tenta de novo em 1 segundo
-                        return;
-                    } else {
-                        document.getElementById('content').innerHTML = '<p>Checklists vazios ou sem tarefas pendentes.</p>';
-                        t.sizeTo('body');
-                        return;
-                    }
-                }
-
-                // Se chegou aqui, o Trello acordou e entregou os dados!
                 var html = '';
                 checklists.forEach(function(lista) {
                     if (lista.checkItems && lista.checkItems.length > 0) {
                         html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
                         lista.checkItems.forEach(function(item) {
                             if (item.state !== 'complete') {
-                                var dt = dbSalvo['data-' + item.id] || '';
-                                var rs = dbSalvo['resp-' + item.id] || '';
+                                var dt = db['data-' + item.id] || '';
+                                var rs = db['resp-' + item.id] || '';
                                 var nomeLimpo = item.name.replace(/"/g, '&quot;');
-                                
-                                html += '<div class="item"><span class="item-name">' + nomeLimpo + '</span>';
+
+                                // Guarda o ID e o NOME no elemento para podermos salvar depois
+                                html += '<div class="item" data-id="' + item.id + '" data-nome="' + nomeLimpo + '">';
+                                html += '<span class="item-name">' + nomeLimpo + '</span>';
                                 html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
                                 html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
                                 
@@ -92,20 +92,13 @@
                     }
                 });
                 
-                html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
+                html += '<button id="btnSalvar" class="salvar" onclick="salvarTudo()">💾 Salvar Lembretes</button>';
                 document.getElementById('content').innerHTML = html;
                 t.sizeTo('body');
             });
         }
 
-        // Inicia a leitura
-        t.render(function() {
-            t.get('card', 'shared', 'dbLembretes').then(function(db) {
-                dbSalvo = db || {};
-                tentativas = 0; // Zera as tentativas toda vez que abre
-                desenharInterface();
-            });
-        });
+        t.render(function() { desenharInterface(); });
     </script>
 </body>
 </html>
