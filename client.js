@@ -1,4 +1,4 @@
-console.log("🚀 Lembrete v2.0 Carregado!");
+console.log("🚀 Lembrete v2.0 - Versão Blindada");
 
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
@@ -20,8 +20,8 @@ TrelloPowerUp.initialize({
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=10'), 
-        height: 100
+        url: t.signUrl('./section.html?v=20'), 
+        height: 120
       }
     };
   }
