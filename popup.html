@@ -1,102 +1,91 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <meta charset="utf-8">
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-      body { padding: 15px; font-family: sans-serif; color: #b6c2cf; background-color: #282e33; }
-      .item-box { background: #22272b; padding: 10px; border-radius: 5px; margin-bottom: 12px; border: 1px solid #738496; display: flex; flex-direction: column; gap: 8px;}
-      h5 { margin-top: 15px; color: #579dff; font-weight: bold; }
-      input[type="date"], select { background: #282e33; color: #b6c2cf; border: 1px solid #738496; padding: 6px; border-radius: 3px; outline: none; width: 100%; box-sizing: border-box; }
-      .mod-primary { width: 100%; margin-top: 5px; }
-      .linha-inputs { display: flex; gap: 5px; }
+        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 15px; }
+        .chk-title { color: #579dff; border-bottom: 1px solid #353c42; padding-bottom: 5px; margin-top: 15px; font-size: 16px; }
+        .item { margin-bottom: 15px; background-color: #22272b; padding: 10px; border-radius: 5px; border: 1px solid #353c42; }
+        .item-name { font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px; line-height: 1.4; }
+        input, select { width: 100%; padding: 8px; margin-bottom: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; box-sizing: border-box; }
+        button { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        button:hover { background: #0043a6; }
     </style>
-  </head>
-  <body>
-    <h4 style="color: #fff;">📅 Agendar Lembretes</h4>
-    <div id="conteudo">Carregando seus itens...</div>
-
+</head>
+<body>
+    <div id="content" style="text-align: center; padding: 20px;">Carregando Lembretes...</div>
+    
     <script>
-      var t = TrelloPowerUp.iframe();
-
-      t.render(function() {
-        // O SEGREDO: Fazemos pedidos separados! Um para checklists, outro para membros.
-        Promise.all([
-          t.card('checklists'),
-          t.card('members'),
-          t.getAll()
-        ]).then(function(valores) {
-          var listas = valores[0].checklists || [];
-          var membros = valores[1].members || [];
-          var dadosSalvos = valores[2].card && valores[2].card.shared ? valores[2].card.shared : {};
-          var html = '';
-
-          var opcoesMembros = '<option value="">Sem responsável</option>';
-          if (membros.length > 0) {
-            membros.forEach(function(membro) {
-              opcoesMembros += `<option value="${membro.username}">${membro.fullName}</option>`;
-            });
-          } else {
-             opcoesMembros = '<option value="">Adicione pessoas ao cartão!</option>';
-          }
-
-          if (listas.length === 0) {
-            document.getElementById('conteudo').innerHTML = '<p>Crie um checklist primeiro!</p>';
-            return;
-          }
-
-          listas.forEach(function(lista) {
-            html += `<h5>📋 ${lista.name}</h5>`;
+        var t = TrelloPowerUp.iframe();
+        
+        function salvarTudo() {
+            var dadosParaSalvar = {};
+            var inputs = document.querySelectorAll('input, select');
             
-            if (!lista.checkItems || lista.checkItems.length === 0) {
-              html += `<p style="color: #8c9bab; font-size: 12px;">Lista vazia (adicione itens e dê Enter).</p>`;
-            } else {
-              lista.checkItems.forEach(function(item) {
-                
-                var idData = 'data-' + item.id;
-                var idResp = 'resp-' + item.id;
-                
-                var dataAntiga = dadosSalvos[idData] || '';
-                var respAntigo = dadosSalvos[idResp] || '';
+            inputs.forEach(function(campo) {
+                if (campo.value) { dadosParaSalvar[campo.id] = campo.value; }
+            });
 
-                var selectPronto = opcoesMembros.replace(`value="${respAntigo}"`, `value="${respAntigo}" selected`);
+            var btn = document.getElementById('btnSalvar');
+            btn.innerHTML = 'Salvando...';
 
-                html += `
-                  <div class="item-box">
-                    <strong style="color: #dfe1e6;">${item.name}</strong>
-                    <div class="linha-inputs">
-                      <input type="date" id="${idData}" value="${dataAntiga}" title="Data do lembrete">
-                      <select id="${idResp}" title="Quem cobrar?">
-                        ${selectPronto}
-                      </select>
-                    </div>
-                    <button class="mod-primary" onclick="salvar('${item.id}')">Salvar Lembrete</button>
-                  </div>
-                `;
-              });
-            }
-          });
+            // SALVAMENTO EM BLOCO ÚNICO (Mais rápido e seguro)
+            t.set('card', 'shared', 'dbLembretes', dadosParaSalvar).then(function() {
+                btn.innerHTML = '✅ Salvo com sucesso!';
+                btn.style.background = '#216e4e';
+                setTimeout(function() { t.closePopup(); }, 1000);
+            });
+        }
 
-          document.getElementById('conteudo').innerHTML = html;
-        }).catch(function(err){
-           document.getElementById('conteudo').innerHTML = '<p>Erro ao carregar dados.</p>';
+        t.render(function() {
+            Promise.all([
+                t.card('checklists'),
+                t.get('card', 'shared', 'dbLembretes') // Busca na nova caixa
+            ]).then(function(valores) {
+                var checklists = valores[0].checklists || [];
+                var db = valores[1] || {};
+                var html = '';
+
+                if (checklists.length === 0) {
+                    html = '<p style="text-align:center;">Nenhum checklist encontrado.</p>';
+                } else {
+                    checklists.forEach(function(lista) {
+                        html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
+                        lista.checkItems.forEach(function(item) {
+                            if (item.state !== 'complete') {
+                                var dataSalva = db['data-' + item.id] || '';
+                                var respSalvo = db['resp-' + item.id] || '';
+                                var nomeSeguro = item.name.replace(/"/g, '&quot;');
+
+                                html += '<div class="item">';
+                                html += '<span class="item-name">' + nomeSeguro + '</span>';
+                                html += '<div style="display: flex; gap: 8px;">';
+                                html += '<input type="date" id="data-' + item.id + '" value="' + dataSalva + '">';
+                                html += '<select id="resp-' + item.id + '">';
+                                html += '<option value="">Sem resp.</option>';
+                                
+                                var equipe = [
+                                    {id:"williansena3", nome:"Willian"}, {id:"gilbertogomesdelima", nome:"Gilberto"},
+                                    {id:"samiralima10", nome:"Samira"}, {id:"nutrigiorgetti", nome:"Giorgetti"},
+                                    {id:"rosanasoares22", nome:"Rosana"}, {id:"felipecasanovavieira", nome:"Felipe"}
+                                ];
+                                
+                                equipe.forEach(function(m) {
+                                    var sel = (respSalvo === m.id) ? 'selected' : '';
+                                    html += '<option value="'+m.id+'" '+sel+'>'+m.nome+'</option>';
+                                });
+                                html += '</select></div></div>';
+                            }
+                        });
+                    });
+                    html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar Lembretes</button>';
+                }
+                document.getElementById('content').innerHTML = html;
+                t.sizeTo('#content').catch(function(){});
+            });
         });
-      });
-
-      window.salvar = function(id) {
-        var dataEscolhida = document.getElementById('data-' + id).value;
-        var respEscolhido = document.getElementById('resp-' + id).value;
-        
-        if (!dataEscolhida) return alert('Escolha uma data no calendário!');
-        
-        t.set('card', 'shared', {
-          ['data-' + id]: dataEscolhida,
-          ['resp-' + id]: respEscolhido
-        }).then(function() {
-          alert('Pronto! Data e Responsável salvos com sucesso. 🚀');
-        });
-      }
     </script>
-  </body>
+</body>
 </html>
