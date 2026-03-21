@@ -14,9 +14,10 @@
     </style>
 </head>
 <body>
-    <div id="content">Verificando banco de dados...</div>
+    <div id="content">Sincronizando com Trello...</div>
     <script>
         var t = TrelloPowerUp.iframe();
+        var lastPing = 0;
 
         function salvarTudo() {
             try {
@@ -34,13 +35,27 @@
         }
 
         t.render(function() {
-            return Promise.all([ t.card('checklists'), t.getAll() ]).then(function(res) {
+            Promise.all([ t.card('checklists'), t.getAll() ]).then(function(res) {
                 var checklists = res[0].checklists || [];
                 var all = res[1] || {};
                 var shared = (all.card && all.card.shared) ? all.card.shared : {};
-                var dbNew = shared.dbLembretes || {}; // O formato novo
-                var html = '';
+                var dbNew = shared.dbLembretes || {};
 
+                // ⚡ O DESFIBRILADOR (Se o Trello mandar fantasma, dá o choque)
+                var hasLists = checklists.length > 0;
+                var hasItems = false;
+                checklists.forEach(function(l) { if (l.checkItems && l.checkItems.length > 0) hasItems = true; });
+
+                if (hasLists && !hasItems) {
+                    if (Date.now() - lastPing > 3000) {
+                        lastPing = Date.now();
+                        t.set('card', 'shared', 'ping WakeUp', Date.now()); // Acorda o Trello!
+                        return; // Espera o Trello acordar para desenhar
+                    }
+                }
+
+                // Desenha a tela híbrida (lê o jeito velho e o jeito novo)
+                var html = '';
                 if (checklists.length === 0) {
                     html = '<p style="text-align:center;">Crie um checklist primeiro!</p>';
                 } else {
@@ -48,7 +63,6 @@
                         html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
                         (lista.checkItems || []).forEach(function(item) {
                             if (item.state !== 'complete') {
-                                // 🛡️ A MÁGICA HÍBRIDA: Tenta ler o formato novo, se não achar, lê o formato antigo
                                 var dt = dbNew['data-' + item.id] || shared['data-' + item.id] || '';
                                 var rs = dbNew['resp-' + item.id] || shared['resp-' + item.id] || '';
                                 
