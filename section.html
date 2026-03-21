@@ -8,26 +8,26 @@
       body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 5px; }
       .linha { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #353c42; font-size: 14px;}
       .linha:last-child { border-bottom: none; }
-      .atrasado { color: #f87168; font-weight: bold; } /* Vermelho */
-      .hoje { color: #f5cd47; font-weight: bold; } /* Amarelo */
-      .futuro { color: #579dff; } /* Azul */
+      .atrasado { color: #f87168; font-weight: bold; }
+      .hoje { color: #f5cd47; font-weight: bold; }
+      .futuro { color: #579dff; }
       .resp { color: #9fadbc; font-size: 12px; }
     </style>
   </head>
   <body>
-    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">Carregando painel...</div>
+    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">Buscando dados no servidor...</div>
     
     <script>
       var t = TrelloPowerUp.iframe();
+      var timer1, timer2; // Variáveis para guardar nossos alarmes
       
-      t.render(function() {
-        // 🚀 MUDANÇA AQUI: Usando o comando direto e à prova de falhas t.get('card', 'shared')
+      function buscarEDesenhar() {
         Promise.all([
           t.card('checklists'),
           t.get('card', 'shared')
         ]).then(function(valores) {
           var listas = valores[0].checklists || [];
-          var dadosSalvos = valores[1] || {}; // Os dados agora vêm direto, sem atrasos
+          var dadosSalvos = valores[1] || {}; 
           
           var dataAtual = new Date();
           var hojeIso = dataAtual.getFullYear() + '-' + String(dataAtual.getMonth() + 1).padStart(2, '0') + '-' + String(dataAtual.getDate()).padStart(2, '0');
@@ -37,6 +37,7 @@
           listas.forEach(function(lista) {
             if (lista.checkItems) {
               lista.checkItems.forEach(function(item) {
+                // Só pega se não estiver concluído e se DE FATO a data existir
                 if (item.state !== 'complete' && dadosSalvos['data-' + item.id]) {
                   itensParaMostrar.push({
                     nome: item.name,
@@ -48,6 +49,7 @@
             }
           });
 
+          // Ordenação Matemática
           itensParaMostrar.sort(function(a, b) {
             if (a.dataIso < b.dataIso) return -1;
             if (a.dataIso > b.dataIso) return 1;
@@ -75,6 +77,19 @@
           document.getElementById('lista').innerHTML = html;
           t.sizeTo('#lista').catch(function(){});
         });
+      }
+
+      // O Trello chama essa função quando abre o cartão
+      t.render(function() {
+        buscarEDesenhar(); // 1ª Tentativa: Imediata
+        
+        // Limpa os alarmes antigos para não virar bagunça
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        
+        // 2ª e 3ª Tentativas: Busca de novo 1 e 2 segundos depois para pegar dados atrasados do Trello
+        timer1 = setTimeout(buscarEDesenhar, 1000);
+        timer2 = setTimeout(buscarEDesenhar, 2000);
       });
     </script>
   </body>
