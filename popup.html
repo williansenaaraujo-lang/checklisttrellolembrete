@@ -5,85 +5,74 @@
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 15px; }
-        .chk-title { color: #579dff; border-bottom: 1px solid #353c42; padding-bottom: 5px; margin-top: 15px; font-size: 16px; }
-        .item { margin-bottom: 15px; background-color: #22272b; padding: 10px; border-radius: 5px; border: 1px solid #353c42; }
-        .item-name { font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px; line-height: 1.4; }
-        input, select { width: 100%; padding: 8px; margin-bottom: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; box-sizing: border-box; }
-        button { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        button:hover { background: #0043a6; }
+        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; padding: 15px; }
+        .chk-title { color: #579dff; border-bottom: 1px solid #353c42; padding-bottom: 5px; margin-top: 15px; font-size: 15px; }
+        .item { margin-bottom: 10px; background-color: #22272b; padding: 10px; border-radius: 5px; border: 1px solid #353c42; }
+        .item-name { font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px; }
+        input, select { width: 100%; padding: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; font-size: 13px; }
+        button { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 15px; }
     </style>
 </head>
 <body>
-    <div id="content" style="text-align: center; padding: 20px;">Carregando Lembretes...</div>
+    <div id="content">Carregando Lembretes...</div>
     
     <script>
         var t = TrelloPowerUp.iframe();
-        
+
         function salvarTudo() {
-            var dadosParaSalvar = {};
-            var inputs = document.querySelectorAll('input, select');
-            
-            inputs.forEach(function(campo) {
-                if (campo.value) { dadosParaSalvar[campo.id] = campo.value; }
-            });
-
-            var btn = document.getElementById('btnSalvar');
-            btn.innerHTML = 'Salvando...';
-
-            // SALVAMENTO EM BLOCO ÚNICO (Mais rápido e seguro)
-            t.set('card', 'shared', 'dbLembretes', dadosParaSalvar).then(function() {
-                btn.innerHTML = '✅ Salvo com sucesso!';
-                btn.style.background = '#216e4e';
-                setTimeout(function() { t.closePopup(); }, 1000);
-            });
+            try {
+                var dados = {};
+                document.querySelectorAll('input, select').forEach(function(el) {
+                    if (el.value) dados[el.id] = el.value;
+                });
+                var btn = document.getElementById('btnSalvar');
+                btn.innerHTML = 'Salvando...';
+                t.set('card', 'shared', 'dbLembretes', dados).then(function() {
+                    btn.innerHTML = '✅ Salvo!';
+                    setTimeout(function() { t.closePopup(); }, 800);
+                });
+            } catch (e) { alert("Erro ao salvar: " + e.message); }
         }
 
         t.render(function() {
-            Promise.all([
+            return Promise.all([
                 t.card('checklists'),
-                t.get('card', 'shared', 'dbLembretes') // Busca na nova caixa
-            ]).then(function(valores) {
-                var checklists = valores[0].checklists || [];
-                var db = valores[1] || {};
+                t.get('card', 'shared', 'dbLembretes')
+            ]).then(function(res) {
+                var checklists = res[0].checklists || [];
+                var db = res[1] || {}; // Se vier nulo, vira um objeto vazio {}
                 var html = '';
 
                 if (checklists.length === 0) {
-                    html = '<p style="text-align:center;">Nenhum checklist encontrado.</p>';
+                    html = '<p style="text-align:center;">Crie um checklist primeiro!</p>';
                 } else {
                     checklists.forEach(function(lista) {
                         html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
-                        lista.checkItems.forEach(function(item) {
+                        (lista.checkItems || []).forEach(function(item) {
                             if (item.state !== 'complete') {
-                                var dataSalva = db['data-' + item.id] || '';
-                                var respSalvo = db['resp-' + item.id] || '';
-                                var nomeSeguro = item.name.replace(/"/g, '&quot;');
-
-                                html += '<div class="item">';
-                                html += '<span class="item-name">' + nomeSeguro + '</span>';
-                                html += '<div style="display: flex; gap: 8px;">';
-                                html += '<input type="date" id="data-' + item.id + '" value="' + dataSalva + '">';
-                                html += '<select id="resp-' + item.id + '">';
-                                html += '<option value="">Sem resp.</option>';
+                                var dt = db['data-' + item.id] || '';
+                                var rs = db['resp-' + item.id] || '';
+                                html += '<div class="item"><span class="item-name">' + item.name + '</span>';
+                                html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
+                                html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
                                 
-                                var equipe = [
-                                    {id:"williansena3", nome:"Willian"}, {id:"gilbertogomesdelima", nome:"Gilberto"},
-                                    {id:"samiralima10", nome:"Samira"}, {id:"nutrigiorgetti", nome:"Giorgetti"},
-                                    {id:"rosanasoares22", nome:"Rosana"}, {id:"felipecasanovavieira", nome:"Felipe"}
-                                ];
-                                
-                                equipe.forEach(function(m) {
-                                    var sel = (respSalvo === m.id) ? 'selected' : '';
-                                    html += '<option value="'+m.id+'" '+sel+'>'+m.nome+'</option>';
+                                var equipe = ["Willian", "Gilberto", "Samira", "Giorgetti", "Rosana", "Felipe"];
+                                equipe.forEach(function(nome) {
+                                    var id = nome.toLowerCase().replace(/\s/g, '');
+                                    var sel = (rs === id) ? 'selected' : '';
+                                    html += '<option value="'+id+'" '+sel+'>'+nome+'</option>';
                                 });
                                 html += '</select></div></div>';
                             }
                         });
                     });
-                    html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar Lembretes</button>';
+                    html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
                 }
                 document.getElementById('content').innerHTML = html;
-                t.sizeTo('#content').catch(function(){});
+                t.sizeTo('body');
+            }).catch(function(err) {
+                document.getElementById('content').innerHTML = "Erro de carregamento.";
+                console.error(err);
             });
         });
     </script>
