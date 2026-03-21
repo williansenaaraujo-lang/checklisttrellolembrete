@@ -11,13 +11,17 @@
         .item-name { font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px; }
         input, select { width: 100%; padding: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; font-size: 13px; box-sizing: border-box; margin-bottom: 5px; }
         button { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 15px; }
-        .alerta { background-color: #422a04; border: 1px solid #f5cd47; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
-    <div id="content" style="text-align: center;">Carregando sistema...</div>
+    <div id="content" style="text-align: center; margin-top: 20px;">
+        <p style="color:#f5cd47; font-size: 14px;">Sincronizando tarefas...</p>
+    </div>
+    
     <script>
         var t = TrelloPowerUp.iframe();
+        var dbSalvo = {};
+        var tentativas = 0; // O nosso contador de paciência
 
         function salvarTudo() {
             var dados = {};
@@ -32,43 +36,44 @@
             });
         }
 
-        t.render(function() {
-            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
-                var checklists = res[0].checklists || [];
-                var shared = res[1] || {};
-                var dbNew = shared.dbLembretes || {};
+        function desenharInterface() {
+            // Pedimos 'all' para forçar o Trello a mandar tudo o que tem
+            t.card('all').then(function(card) {
+                var checklists = card.checklists || [];
                 
                 if (checklists.length === 0) {
-                    document.getElementById('content').innerHTML = '<p>Nenhum checklist criado no cartão.</p>';
+                    document.getElementById('content').innerHTML = '<p>Nenhum checklist criado neste cartão.</p>';
                     t.sizeTo('body');
                     return;
                 }
 
-                // Verifica se o Trello cometeu o bug de não mandar as tarefas
                 var temItens = false;
                 checklists.forEach(function(c) {
                     if (c.checkItems && c.checkItems.length > 0) temItens = true;
                 });
 
-                var html = '';
+                // O ROBÔ SILENCIOSO: Tenta buscar os dados 3 vezes invisivelmente
                 if (!temItens) {
-                    // Tenta forçar o Trello a acordar
-                    if (!shared.ping || (Date.now() - shared.ping > 3000)) {
-                        t.set('card', 'shared', 'ping', Date.now());
+                    tentativas++;
+                    if (tentativas < 4) {
+                        setTimeout(desenharInterface, 1000); // Tenta de novo em 1 segundo
+                        return;
+                    } else {
+                        document.getElementById('content').innerHTML = '<p>Checklists vazios ou sem tarefas pendentes.</p>';
+                        t.sizeTo('body');
+                        return;
                     }
-                    html += '<div class="alerta">';
-                    html += '<h4 style="margin:0 0 5px 0; color:#f5cd47;">⚠️ Trello Sincronizando...</h4>';
-                    html += '<p style="font-size:12px; margin:0;">O servidor do Trello ocultou as tarefas deste cartão. Se esta tela não carregar sozinha em 3 segundos, feche esta janela, <b>marque e desmarque qualquer item</b> do checklist lá fora, e clique em Agendar novamente.</p>';
-                    html += '</div>';
                 }
 
+                // Se chegou aqui, o Trello acordou e entregou os dados!
+                var html = '';
                 checklists.forEach(function(lista) {
                     if (lista.checkItems && lista.checkItems.length > 0) {
                         html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
                         lista.checkItems.forEach(function(item) {
                             if (item.state !== 'complete') {
-                                var dt = dbNew['data-' + item.id] || shared['data-' + item.id] || '';
-                                var rs = dbNew['resp-' + item.id] || shared['resp-' + item.id] || '';
+                                var dt = dbSalvo['data-' + item.id] || '';
+                                var rs = dbSalvo['resp-' + item.id] || '';
                                 var nomeLimpo = item.name.replace(/"/g, '&quot;');
                                 
                                 html += '<div class="item"><span class="item-name">' + nomeLimpo + '</span>';
@@ -87,10 +92,18 @@
                     }
                 });
                 
-                if (temItens) html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
-                
+                html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
                 document.getElementById('content').innerHTML = html;
                 t.sizeTo('body');
+            });
+        }
+
+        // Inicia a leitura
+        t.render(function() {
+            t.get('card', 'shared', 'dbLembretes').then(function(db) {
+                dbSalvo = db || {};
+                tentativas = 0; // Zera as tentativas toda vez que abre
+                desenharInterface();
             });
         });
     </script>
