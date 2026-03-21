@@ -21,14 +21,17 @@
       var t = TrelloPowerUp.iframe();
       
       t.render(function() {
-        Promise.all([t.card('checklists'), t.getAll()]).then(function(valores) {
+        // 🚀 MUDANÇA AQUI: Usando o comando direto e à prova de falhas t.get('card', 'shared')
+        Promise.all([
+          t.card('checklists'),
+          t.get('card', 'shared')
+        ]).then(function(valores) {
           var listas = valores[0].checklists || [];
-          var dadosSalvos = valores[1].card && valores[1].card.shared ? valores[1].card.shared : {};
+          var dadosSalvos = valores[1] || {}; // Os dados agora vêm direto, sem atrasos
           
           var dataAtual = new Date();
           var hojeIso = dataAtual.getFullYear() + '-' + String(dataAtual.getMonth() + 1).padStart(2, '0') + '-' + String(dataAtual.getDate()).padStart(2, '0');
 
-          // 1. Cria uma lista vazia para guardar os itens antes de mostrar
           var itensParaMostrar = [];
 
           listas.forEach(function(lista) {
@@ -45,14 +48,12 @@
             }
           });
 
-          // 2. A MÁGICA DA ORDENAÇÃO: Coloca em ordem cronológica (do mais antigo pro mais novo)
           itensParaMostrar.sort(function(a, b) {
             if (a.dataIso < b.dataIso) return -1;
             if (a.dataIso > b.dataIso) return 1;
             return 0;
           });
 
-          // 3. Agora sim, desenha na tela na ordem correta
           var html = '';
           itensParaMostrar.forEach(function(item) {
             var classeCor = (item.dataIso < hojeIso) ? 'atrasado' : (item.dataIso === hojeIso ? 'hoje' : 'futuro');
