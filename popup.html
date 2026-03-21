@@ -11,13 +11,13 @@
         .item-name { font-weight: bold; margin-bottom: 8px; display: block; font-size: 13px; }
         input, select { width: 100%; padding: 8px; background-color: #282e33; color: #b6c2cf; border: 1px solid #353c42; border-radius: 3px; font-size: 13px; box-sizing: border-box; margin-bottom: 5px; }
         button { width: 100%; background: #0052CC; color: white; border: none; padding: 12px; border-radius: 3px; cursor: pointer; font-weight: bold; margin-top: 15px; }
-        .erro { color: #f87168; text-align: center; }
     </style>
 </head>
 <body>
-    <div id="content" style="text-align: center;">Carregando Lembretes...</div>
+    <div id="content" style="text-align: center;">Iniciando sistema...</div>
     <script>
         var t = TrelloPowerUp.iframe();
+        var bancoDeDados = {}; // Guarda os dados que salvamos antes
 
         function salvarTudo() {
             var dados = {};
@@ -30,60 +30,73 @@
             t.set('card', 'shared', 'dbLembretes', dados).then(function() {
                 btn.innerHTML = '✅ Salvo!';
                 setTimeout(function() { t.closePopup(); }, 800);
-            }).catch(function(e) {
-                alert("Erro ao salvar: " + e.message);
+            }).catch(function(e) { alert("Erro: " + e.message); });
+        }
+
+        function desenharTela() {
+            t.card('checklists').then(function(cardInfo) {
+                var checklists = cardInfo.checklists || [];
+
+                if (checklists.length === 0) {
+                    document.getElementById('content').innerHTML = '<p style="text-align:center;">Nenhum checklist criado neste cartão.</p>';
+                    t.sizeTo('body');
+                    return;
+                }
+
+                // Verifica se o Trello já entregou as tarefas
+                var temItens = false;
+                checklists.forEach(function(c) {
+                    if (c.checkItems && c.checkItems.length > 0) temItens = true;
+                });
+
+                // 🔄 O LOOP DA PACIÊNCIA: Se tem checklist mas não tem itens, ele espera 1 segundo e tenta ler de novo!
+                if (!temItens) {
+                    document.getElementById('content').innerHTML = '<p style="text-align:center; color:#f5cd47;">Aguardando Trello baixar as tarefas...</p>';
+                    setTimeout(desenharTela, 1000);
+                    return;
+                }
+
+                // Se chegou aqui, o Trello finalmente entregou as tarefas! Vamos desenhar:
+                var html = '';
+                var dbNew = bancoDeDados.dbLembretes || {};
+
+                checklists.forEach(function(lista) {
+                    if (lista.checkItems && lista.checkItems.length > 0) {
+                        html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
+                        lista.checkItems.forEach(function(item) {
+                            if (item.state !== 'complete') {
+                                // Lê as datas
+                                var dt = dbNew['data-' + item.id] || bancoDeDados['data-' + item.id] || '';
+                                var rs = dbNew['resp-' + item.id] || bancoDeDados['resp-' + item.id] || '';
+                                var nomeLimpo = item.name.replace(/"/g, '&quot;');
+                                
+                                html += '<div class="item"><span class="item-name">' + nomeLimpo + '</span>';
+                                html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
+                                html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
+                                
+                                var equipe = ["Willian", "Gilberto", "Samira", "Giorgetti", "Rosana", "Felipe"];
+                                equipe.forEach(function(nome) {
+                                    var id = nome.toLowerCase().replace(/\s/g, '');
+                                    var sel = (rs === id) ? 'selected' : '';
+                                    html += '<option value="'+id+'" '+sel+'>'+nome+'</option>';
+                                });
+                                html += '</select></div></div>';
+                            }
+                        });
+                    }
+                });
+                
+                html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
+                document.getElementById('content').innerHTML = html;
+                t.sizeTo('body');
             });
         }
 
-        // t.render é chamado nativamente e automaticamente pelo Trello
+        // Quando a janela abre, ele busca o banco de dados UMA vez, e depois dispara a função de desenhar
         t.render(function() {
-            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
-                var checklists = res[0].checklists || [];
-                var shared = res[1] || {};
-                var dbNew = shared.dbLembretes || {};
-                var html = '';
-
-                if (checklists.length === 0) {
-                    html = '<p style="text-align:center;">Nenhum checklist encontrado.</p>';
-                } else {
-                    var temItens = false;
-                    checklists.forEach(function(lista) {
-                        if (lista.checkItems && lista.checkItems.length > 0) {
-                            temItens = true;
-                            html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
-                            lista.checkItems.forEach(function(item) {
-                                if (item.state !== 'complete') {
-                                    // Sistema Híbrido Estável: Lê as datas novas ou antigas
-                                    var dt = dbNew['data-' + item.id] || shared['data-' + item.id] || '';
-                                    var rs = dbNew['resp-' + item.id] || shared['resp-' + item.id] || '';
-                                    
-                                    html += '<div class="item"><span class="item-name">' + item.name + '</span>';
-                                    html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
-                                    html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
-                                    
-                                    var equipe = ["Willian", "Gilberto", "Samira", "Giorgetti", "Rosana", "Felipe"];
-                                    equipe.forEach(function(nome) {
-                                        var id = nome.toLowerCase().replace(/\s/g, '');
-                                        var sel = (rs === id) ? 'selected' : '';
-                                        html += '<option value="'+id+'" '+sel+'>'+nome+'</option>';
-                                    });
-                                    html += '</select></div></div>';
-                                }
-                            });
-                        }
-                    });
-                    
-                    if (!temItens) {
-                        html = '<p style="text-align:center;">Nenhum item de checklist pendente.</p>';
-                    } else {
-                        html += '<button id="btnSalvar" onclick="salvarTudo()">💾 Salvar</button>';
-                    }
-                }
-                document.getElementById('content').innerHTML = html;
-                t.sizeTo('body');
-            }).catch(function(err) {
-                document.getElementById('content').innerHTML = '<p class="erro">Erro ao carregar dados.</p>';
-                console.error(err);
+            t.get('card', 'shared').then(function(shared) {
+                bancoDeDados = shared || {};
+                desenharTela();
             });
         });
     </script>
