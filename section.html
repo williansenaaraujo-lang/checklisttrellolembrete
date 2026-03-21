@@ -16,15 +16,18 @@
     </style>
 </head>
 <body>
-    <div id="lista" class="container">Carregando painel...</div>
+    <div id="lista" class="container">
+        <p style="text-align:center;font-size:12px;color:#f5cd47;margin:0;">Sincronizando tarefas...</p>
+    </div>
+
     <script>
         var t = TrelloPowerUp.iframe();
+        var dbSalvo = {};
+        var tentativas = 0;
 
-        t.render(function() {
-            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
-                var checklists = res[0].checklists || [];
-                var shared = res[1] || {};
-                var dbNew = shared.dbLembretes || {};
+        function desenharPainel() {
+            t.card('all').then(function(card) {
+                var checklists = card.checklists || [];
                 
                 var temItens = false;
                 checklists.forEach(function(c) {
@@ -32,10 +35,11 @@
                 });
 
                 if (checklists.length > 0 && !temItens) {
-                    if (!shared.ping || (Date.now() - shared.ping > 3000)) t.set('card', 'shared', 'ping', Date.now());
-                    document.getElementById('lista').innerHTML = '<p style="text-align:center;font-size:12px;color:#f5cd47;margin:0;">Sincronizando tarefas com o Trello...</p>';
-                    t.sizeTo('body');
-                    return; 
+                    tentativas++;
+                    if (tentativas < 4) {
+                        setTimeout(desenharPainel, 1000);
+                        return;
+                    }
                 }
 
                 var final = [];
@@ -44,8 +48,8 @@
                 checklists.forEach(function(l) {
                     (l.checkItems || []).forEach(function(i) {
                         if (i.state !== 'complete') {
-                            var d = dbNew['data-' + i.id] || shared['data-' + i.id];
-                            var r = dbNew['resp-' + i.id] || shared['resp-' + i.id];
+                            var d = dbSalvo['data-' + i.id];
+                            var r = dbSalvo['resp-' + i.id];
                             if (d) final.push({ n: i.name, d: d, r: r });
                         }
                     });
@@ -68,6 +72,14 @@
                     document.getElementById('lista').innerHTML = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete para este cartão.</p>';
                 }
                 t.sizeTo('body');
+            });
+        }
+
+        t.render(function() {
+            t.get('card', 'shared', 'dbLembretes').then(function(db) {
+                dbSalvo = db || {};
+                tentativas = 0;
+                desenharPainel();
             });
         });
     </script>
