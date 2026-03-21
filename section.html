@@ -16,22 +16,37 @@
 </head>
 <body>
     <div id="lista" class="container">Procurando dados...</div>
-
     <script>
         var t = TrelloPowerUp.iframe();
-        function renderizar() {
+        var lastPing = 0;
+
+        t.render(function() {
             Promise.all([ t.card('checklists'), t.getAll() ]).then(function(res) {
-                var lists = res[0].checklists || [];
+                var checklists = res[0].checklists || [];
                 var all = res[1] || {};
                 var shared = (all.card && all.card.shared) ? all.card.shared : {};
                 var dbNew = shared.dbLembretes || {};
+
+                // ⚡ O DESFIBRILADOR (Se o Trello mandar fantasma, dá o choque)
+                var hasLists = checklists.length > 0;
+                var hasItems = false;
+                checklists.forEach(function(l) { if (l.checkItems && l.checkItems.length > 0) hasItems = true; });
+
+                if (hasLists && !hasItems) {
+                    if (Date.now() - lastPing > 3000) {
+                        lastPing = Date.now();
+                        t.set('card', 'shared', 'ping WakeUp', Date.now()); 
+                        return; 
+                    }
+                }
+
                 var final = [];
                 var hoje = new Date().toISOString().split('T')[0];
 
-                lists.forEach(function(l) {
+                checklists.forEach(function(l) {
                     (l.checkItems || []).forEach(function(i) {
                         if (i.state !== 'complete') {
-                            // 🛡️ Lendo as datas agendadas velhas E as novas
+                            // Puxa as datas antigas ou novas
                             var d = dbNew['data-' + i.id] || shared['data-' + i.id];
                             var r = dbNew['resp-' + i.id] || shared['resp-' + i.id];
                             if (d) final.push({ n: i.name, d: d, r: r });
@@ -57,9 +72,7 @@
                 }
                 t.sizeTo('body');
             });
-        }
-        t.render(renderizar);
-        setInterval(renderizar, 2000); // Radar
+        });
     </script>
 </body>
 </html>
