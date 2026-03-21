@@ -1,4 +1,4 @@
-console.log("🚀 Lembrete v101 - Com Loop de Paciência");
+console.log("🚀 Lembrete v500 - Proteção Anti-Cache Ativada");
 
 TrelloPowerUp.initialize({
   'card-buttons': function(t, options) {
@@ -8,7 +8,7 @@ TrelloPowerUp.initialize({
       callback: function(t) {
         return t.popup({ 
           title: 'Agendar Lembrete', 
-          url: './popup.html?v=101', // 🚀 Atualizando Cache
+          url: './popup.html', 
           height: 500
         });
       }
@@ -20,7 +20,7 @@ TrelloPowerUp.initialize({
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=101'), // 🚀 Atualizando Cache
+        url: t.signUrl('./section.html'), 
         height: 120
       }
     };
