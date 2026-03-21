@@ -18,12 +18,12 @@ TrelloPowerUp.initialize({
   
   // 2. A MÁGICA: O Painel fixo dentro do corpo do cartão!
   'card-back-section': function(t, options) {
-    return {
+   return {
       title: '📅 Lembretes Agendados',
       icon: './icone.svg', 
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html'),
+        url: t.signUrl('./section.html?v=3'), // 🚀 FORÇANDO A VERSÃO 3
         height: 100
       }
     };
