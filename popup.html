@@ -14,8 +14,7 @@
     </style>
 </head>
 <body>
-    <div id="content">Carregando Lembretes...</div>
-    
+    <div id="content">Verificando banco de dados...</div>
     <script>
         var t = TrelloPowerUp.iframe();
 
@@ -31,16 +30,15 @@
                     btn.innerHTML = '✅ Salvo!';
                     setTimeout(function() { t.closePopup(); }, 800);
                 });
-            } catch (e) { alert("Erro ao salvar: " + e.message); }
+            } catch (e) { alert("Erro: " + e.message); }
         }
 
         t.render(function() {
-            return Promise.all([
-                t.card('checklists'),
-                t.get('card', 'shared', 'dbLembretes')
-            ]).then(function(res) {
+            return Promise.all([ t.card('checklists'), t.getAll() ]).then(function(res) {
                 var checklists = res[0].checklists || [];
-                var db = res[1] || {}; // Se vier nulo, vira um objeto vazio {}
+                var all = res[1] || {};
+                var shared = (all.card && all.card.shared) ? all.card.shared : {};
+                var dbNew = shared.dbLembretes || {}; // O formato novo
                 var html = '';
 
                 if (checklists.length === 0) {
@@ -50,8 +48,10 @@
                         html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
                         (lista.checkItems || []).forEach(function(item) {
                             if (item.state !== 'complete') {
-                                var dt = db['data-' + item.id] || '';
-                                var rs = db['resp-' + item.id] || '';
+                                // 🛡️ A MÁGICA HÍBRIDA: Tenta ler o formato novo, se não achar, lê o formato antigo
+                                var dt = dbNew['data-' + item.id] || shared['data-' + item.id] || '';
+                                var rs = dbNew['resp-' + item.id] || shared['resp-' + item.id] || '';
+                                
                                 html += '<div class="item"><span class="item-name">' + item.name + '</span>';
                                 html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
                                 html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
@@ -70,9 +70,6 @@
                 }
                 document.getElementById('content').innerHTML = html;
                 t.sizeTo('body');
-            }).catch(function(err) {
-                document.getElementById('content').innerHTML = "Erro de carregamento.";
-                console.error(err);
             });
         });
     </script>
