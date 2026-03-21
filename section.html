@@ -5,69 +5,56 @@
     <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 5px; }
-        .linha { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #353c42; font-size: 14px;}
+        body { font-family: sans-serif; color: #b6c2cf; background-color: #282e33; margin: 0; padding: 0; }
+        .container { background-color: #22272b; border-radius: 5px; padding: 10px; }
+        .linha { display: flex; justify-content: space-between; padding: 6px; border-bottom: 1px solid #353c42; font-size: 13px; }
         .atrasado { color: #f87168; font-weight: bold; }
         .hoje { color: #f5cd47; font-weight: bold; }
         .futuro { color: #579dff; }
-        .resp { color: #9fadbc; font-size: 12px; }
+        .resp { color: #9fadbc; font-size: 11px; }
     </style>
 </head>
 <body>
-    <div id="lista" style="background-color: #22272b; border-radius: 5px; padding: 10px;">Sincronizando...</div>
+    <div id="lista" class="container">Sincronizando...</div>
 
     <script>
         var t = TrelloPowerUp.iframe();
-        var ultimaCarga = "";
-
         function renderizar() {
-            Promise.all([
-                t.card('checklists'),
-                t.get('card', 'shared', 'dbLembretes')
-            ]).then(function(valores) {
-                var checklists = valores[0].checklists || [];
-                var db = valores[1] || {};
-                var itensParaMostrar = [];
-
-                checklists.forEach(function(lista) {
-                    if (lista.checkItems) {
-                        lista.checkItems.forEach(function(item) {
-                            if (item.state !== 'complete' && db['data-' + item.id]) {
-                                itensParaMostrar.push({
-                                    nome: item.name,
-                                    dataIso: db['data-' + item.id],
-                                    resp: db['resp-' + item.id] ? '@' + db['resp-' + item.id] : 'Sem resp.'
-                                });
-                            }
-                        });
-                    }
-                });
-
-                itensParaMostrar.sort((a, b) => a.dataIso.localeCompare(b.dataIso));
-                var html = '';
+            Promise.all([ t.card('checklists'), t.get('card', 'shared', 'dbLembretes') ]).then(function(res) {
+                var lists = res[0].checklists || [];
+                var db = res[1] || {};
+                var final = [];
                 var hoje = new Date().toISOString().split('T')[0];
 
-                itensParaMostrar.forEach(function(item) {
-                    var classe = (item.dataIso < hoje) ? 'atrasado' : (item.dataIso === hoje ? 'hoje' : 'futuro');
-                    html += `<div class="linha">
-                        <span style="width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.nome}</span>
-                        <span class="resp">${item.resp}</span>
-                        <span class="${classe}">${item.dataIso.split('-').reverse().join('/')}</span>
-                    </div>`;
+                lists.forEach(function(l) {
+                    (l.checkItems || []).forEach(function(i) {
+                        if (i.state !== 'complete' && db['data-' + i.id]) {
+                            final.push({ n: i.name, d: db['data-' + i.id], r: db['resp-' + i.id] });
+                        }
+                    });
                 });
 
-                if (html === '') html = '<p style="text-align:center;color:#9fadbc;margin:0;">Nenhum lembrete agendado.</p>';
-                
-                if (html !== ultimaCarga) {
+                if (final.length > 0) {
+                    final.sort((a,b) => a.d.localeCompare(b.d));
+                    var html = '';
+                    final.forEach(function(it) {
+                        var cls = (it.d < hoje) ? 'atrasado' : (it.d === hoje ? 'hoje' : 'futuro');
+                        var resp = it.r ? '@' + it.r : '';
+                        html += `<div class="linha">
+                            <span style="width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.n}</span>
+                            <span class="resp">${resp}</span>
+                            <span class="${cls}">${it.d.split('-').reverse().join('/')}</span>
+                        </div>`;
+                    });
                     document.getElementById('lista').innerHTML = html;
-                    ultimaCarga = html;
-                    t.sizeTo('#lista').catch(() => {});
+                } else {
+                    document.getElementById('lista').innerHTML = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete para este cartão.</p>';
                 }
+                t.sizeTo('body');
             });
         }
-
-        t.render(function() { renderizar(); });
-        setInterval(renderizar, 2000); // Radar de busca a cada 2s
+        t.render(renderizar);
+        setInterval(renderizar, 3000);
     </script>
 </body>
 </html>
