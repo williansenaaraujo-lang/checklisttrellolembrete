@@ -23,53 +23,60 @@
         var htmlMemoria = ''; 
 
         function desenharPainel() {
-            Promise.all([ t.card('checklists'), t.get('card', 'shared', 'dbLembretes') ]).then(function(res) {
+            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
                 var checklists = res[0].checklists || [];
-                var db = res[1] || {};
-                var itensParaMostrar = {};
+                var shared = res[1] || {};
 
-                // 1. MEMÓRIA FOTOGRÁFICA: Carrega tudo que está salvo instantaneamente
-                for (var key in db) {
-                    if (key.startsWith('data-')) {
-                        var id = key.replace('data-', '');
-                        itensParaMostrar[id] = {
-                            id: id,
-                            d: db['data-' + id],
-                            r: db['resp-' + id] || '',
-                            n: db['nome-' + id] || 'Tarefa Agendada' // Usa o nome salvo!
-                        };
+                // Junta o banco velho com o novo igual fizemos no popup
+                var memoria = {};
+                for (var k in shared) {
+                    if (k.startsWith('data-')) {
+                        var id = k.replace('data-', '');
+                        if (!memoria[id]) memoria[id] = { id: id, nome: 'Tarefa Antiga', data: '', resp: '' };
+                        memoria[id].data = shared[k];
+                        memoria[id].resp = shared['resp-' + id] || '';
+                    }
+                }
+                var dbNew = shared.dbLembretes || {};
+                for (var k in dbNew) {
+                    if (k.startsWith('data-')) {
+                        var id = k.replace('data-', '');
+                        if (!memoria[id]) memoria[id] = { id: id, nome: 'Tarefa Agendada', data: '', resp: '' };
+                        memoria[id].data = dbNew[k];
+                        memoria[id].nome = dbNew['nome-' + id] || memoria[id].nome;
+                        memoria[id].resp = dbNew['resp-' + id] || memoria[id].resp;
                     }
                 }
 
-                // 2. ATUALIZAÇÃO: Se o Trello já carregou os checklists, esconde o que foi concluído
+                // Tenta pescar nomes reais do Trello ou remover concluídos
                 checklists.forEach(function(lista) {
-                    (lista.checkItems || []).forEach(function(item) {
-                        if (itensParaMostrar[item.id]) {
-                            itensParaMostrar[item.id].n = item.name; // Pega o nome mais atual se tiver
-                            if (item.state === 'complete') {
-                                delete itensParaMostrar[item.id]; // Remove da tela
+                    if (lista.checkItems) {
+                        lista.checkItems.forEach(function(item) {
+                            if (memoria[item.id]) {
+                                memoria[item.id].nome = item.name;
+                                if (item.state === 'complete') delete memoria[item.id]; 
                             }
-                        }
-                    });
+                        });
+                    }
                 });
 
-                var final = Object.values(itensParaMostrar);
+                var final = Object.values(memoria);
                 var hoje = new Date().toISOString().split('T')[0];
                 var html = '';
 
                 if (final.length > 0) {
-                    final.sort(function(a,b) { return a.d.localeCompare(b.d); });
+                    final.sort(function(a,b) { return a.data.localeCompare(b.data); });
                     final.forEach(function(it) {
-                        var cls = (it.d < hoje) ? 'atrasado' : (it.d === hoje ? 'hoje' : 'futuro');
-                        var resp = it.r ? '@' + it.r : '';
+                        var cls = (it.data < hoje) ? 'atrasado' : (it.data === hoje ? 'hoje' : 'futuro');
+                        var resp = it.resp ? '@' + it.resp : '';
                         html += `<div class="linha">
-                            <span style="width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.n}</span>
+                            <span style="width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${it.nome}</span>
                             <span class="resp">${resp}</span>
-                            <span class="${cls}">${it.d.split('-').reverse().join('/')}</span>
+                            <span class="${cls}">${it.data.split('-').reverse().join('/')}</span>
                         </div>`;
                     });
                 } else {
-                    html = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete para este cartão.</p>';
+                    html = '<p style="text-align:center;font-size:12px;color:#9fadbc;margin:0;">Nenhum lembrete pendente.</p>';
                 }
 
                 if (html !== htmlMemoria) {
@@ -81,7 +88,7 @@
         }
 
         t.render(function() { desenharPainel(); });
-        setInterval(desenharPainel, 2000); // Patrulha silenciosa e inofensiva
+        setInterval(desenharPainel, 1500); 
     </script>
 </body>
 </html>
