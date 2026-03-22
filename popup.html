@@ -15,14 +15,13 @@
     </style>
 </head>
 <body>
-    <div id="content" style="text-align: center; margin-top: 20px;">Carregando...</div>
+    <div id="content" style="text-align: center; margin-top: 20px;">Carregando sistema...</div>
 
     <script>
         var t = TrelloPowerUp.iframe();
 
         function salvarTudo() {
             var dados = {};
-            // 🛡️ A MÁGICA: Agora nós salvamos o NOME da tarefa junto com a data!
             document.querySelectorAll('.item').forEach(function(el) {
                 var id = el.getAttribute('data-id');
                 var nomeVal = el.getAttribute('data-nome');
@@ -37,6 +36,7 @@
             });
             var btn = document.getElementById('btnSalvar');
             btn.innerHTML = 'Salvando...';
+            // Quando salva, atualiza os cartões antigos para a estrutura nova perfeitamente!
             t.set('card', 'shared', 'dbLembretes', dados).then(function() {
                 btn.innerHTML = '✅ Salvo!';
                 setTimeout(function() { t.closePopup(); }, 800);
@@ -45,54 +45,104 @@
 
         function desenharInterface() {
             document.getElementById('content').innerHTML = 'Buscando tarefas...';
-            Promise.all([ t.card('checklists'), t.get('card', 'shared', 'dbLembretes') ]).then(function(res) {
+            Promise.all([ t.card('checklists'), t.get('card', 'shared') ]).then(function(res) {
                 var checklists = res[0].checklists || [];
-                var db = res[1] || {};
+                var shared = res[1] || {};
 
-                var temItens = false;
-                checklists.forEach(function(c) { if (c.checkItems && c.checkItems.length > 0) temItens = true; });
-
-                // 🔄 SE O TRELLO DEMORAR: Mostra o botão manual em vez de dar erro
-                if (!temItens) {
-                    document.getElementById('content').innerHTML = `
-                        <p style="color:#f5cd47; font-size: 14px; margin-bottom:15px;">
-                            O servidor do Trello ainda não sincronizou suas tarefas recém-criadas.
-                        </p>
-                        <button class="recarregar" onclick="desenharInterface()">🔄 Buscar Novamente</button>
-                    `;
-                    t.sizeTo('body');
-                    return;
+                // 1. O TRADUTOR: Junta os dados antigos (v1) e os novos (v999) na mesma memória
+                var memoria = {};
+                for (var k in shared) {
+                    if (k.startsWith('data-')) {
+                        var id = k.replace('data-', '');
+                        if (!memoria[id]) memoria[id] = { id: id, nome: 'Tarefa Antiga', data: '', resp: '' };
+                        memoria[id].data = shared[k];
+                        memoria[id].resp = shared['resp-' + id] || '';
+                    }
+                }
+                var dbNew = shared.dbLembretes || {};
+                for (var k in dbNew) {
+                    if (k.startsWith('data-')) {
+                        var id = k.replace('data-', '');
+                        if (!memoria[id]) memoria[id] = { id: id, nome: 'Tarefa Agendada', data: '', resp: '' };
+                        memoria[id].data = dbNew[k];
+                        memoria[id].nome = dbNew['nome-' + id] || memoria[id].nome;
+                        memoria[id].resp = dbNew['resp-' + id] || memoria[id].resp;
+                    }
                 }
 
-                var html = '';
-                checklists.forEach(function(lista) {
-                    if (lista.checkItems && lista.checkItems.length > 0) {
-                        html += '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
-                        lista.checkItems.forEach(function(item) {
-                            if (item.state !== 'complete') {
-                                var dt = db['data-' + item.id] || '';
-                                var rs = db['resp-' + item.id] || '';
-                                var nomeLimpo = item.name.replace(/"/g, '&quot;');
+                // 2. Verifica quem tem itens
+                var trelloTemItens = false;
+                checklists.forEach(function(c) { if (c.checkItems && c.checkItems.length > 0) trelloTemItens = true; });
+                var memoriaTemItens = Object.keys(memoria).length > 0;
 
-                                // Guarda o ID e o NOME no elemento para podermos salvar depois
-                                html += '<div class="item" data-id="' + item.id + '" data-nome="' + nomeLimpo + '">';
-                                html += '<span class="item-name">' + nomeLimpo + '</span>';
-                                html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+dt+'">';
-                                html += '<select id="resp-'+item.id+'"><option value="">Resp.</option>';
-                                
-                                var equipe = ["Willian", "Gilberto", "Samira", "Giorgetti", "Rosana", "Felipe"];
-                                equipe.forEach(function(nome) {
-                                    var id = nome.toLowerCase().replace(/\s/g, '');
-                                    var sel = (rs === id) ? 'selected' : '';
-                                    html += '<option value="'+id+'" '+sel+'>'+nome+'</option>';
-                                });
-                                html += '</select></div></div>';
-                            }
-                        });
+                var html = '';
+
+                // Função auxiliar para desenhar o dropdown da equipe
+                function buildSelect(id, resp) {
+                    var out = '<select id="resp-'+id+'"><option value="">Resp.</option>';
+                    var equipe = ["Willian", "Gilberto", "Samira", "Giorgetti", "Rosana", "Felipe"];
+                    equipe.forEach(function(n) {
+                        var eqId = n.toLowerCase().replace(/\s/g, '');
+                        var sel = (resp === eqId) ? 'selected' : '';
+                        out += '<option value="'+eqId+'" '+sel+'>'+n+'</option>';
+                    });
+                    out += '</select>';
+                    return out;
+                }
+
+                if (trelloTemItens) {
+                    // CENÁRIO A: Trello perfeito (Mostra a lista oficial)
+                    var temPendente = false;
+                    checklists.forEach(function(lista) {
+                        if (lista.checkItems && lista.checkItems.length > 0) {
+                            var htmlLista = '<h4 class="chk-title">📋 ' + lista.name + '</h4>';
+                            var achou = false;
+                            lista.checkItems.forEach(function(item) {
+                                if (item.state !== 'complete') {
+                                    temPendente = true; achou = true;
+                                    var m = memoria[item.id] || { data: '', resp: '' };
+                                    var nomeLimpo = item.name.replace(/"/g, '&quot;');
+                                    htmlLista += '<div class="item" data-id="'+item.id+'" data-nome="'+nomeLimpo+'">';
+                                    htmlLista += '<span class="item-name">'+nomeLimpo+'</span>';
+                                    htmlLista += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+item.id+'" value="'+m.data+'">';
+                                    htmlLista += buildSelect(item.id, m.resp);
+                                    htmlLista += '</div></div>';
+                                }
+                            });
+                            if (achou) html += htmlLista;
+                        }
+                    });
+                    if (temPendente) {
+                        html += '<button id="btnSalvar" class="salvar" onclick="salvarTudo()">💾 Salvar Lembretes</button>';
+                    } else {
+                        html = '<p style="text-align:center;">Todas as tarefas concluídas!</p>';
                     }
-                });
-                
-                html += '<button id="btnSalvar" class="salvar" onclick="salvarTudo()">💾 Salvar Lembretes</button>';
+
+                } else if (memoriaTemItens) {
+                    // CENÁRIO B: O MILAGRE (Trello bugou no cartão antigo, mas puxamos da memória!)
+                    html += '<div style="background-color: #2e3b2e; color: #a3e0a3; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 12px; border: 1px solid #4a754a;">';
+                    html += '📡 Trello offline, mas <b>recuperamos seus agendamentos antigos</b> do banco de dados!';
+                    html += '</div>';
+
+                    html += '<h4 class="chk-title">💾 Lembretes Antigos Salvos</h4>';
+                    for (var id in memoria) {
+                        var m = memoria[id];
+                        var nomeLimpo = m.nome.replace(/"/g, '&quot;');
+                        html += '<div class="item" data-id="'+m.id+'" data-nome="'+nomeLimpo+'">';
+                        html += '<span class="item-name">'+nomeLimpo+'</span>';
+                        html += '<div style="display:flex;gap:5px;"><input type="date" id="data-'+m.id+'" value="'+m.data+'">';
+                        html += buildSelect(m.id, m.resp);
+                        html += '</div></div>';
+                    }
+                    html += '<button id="btnSalvar" class="salvar" onclick="salvarTudo()">💾 Atualizar Cartão Antigo</button>';
+                    html += '<button class="recarregar" onclick="desenharInterface()" style="margin-top:10px;">🔄 Tentar Sincronizar com Trello</button>';
+
+                } else {
+                    // CENÁRIO C: Cartão realmente novo ou vazio, e Trello lerdo
+                    html += '<p style="color:#f5cd47; font-size: 14px; margin-bottom:15px;">O Trello ainda não sincronizou a lista deste cartão.</p>';
+                    html += '<button class="recarregar" onclick="desenharInterface()">🔄 Buscar Novamente</button>';
+                }
+
                 document.getElementById('content').innerHTML = html;
                 t.sizeTo('body');
             });
